@@ -1,24 +1,25 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { Routes, Route } from "react-router-dom";
+import Layout from "./components/Layout";
+import Home from "./pages/Home";
+import Login from "./components/Login";
+import Register from "./components/Register";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import DoctorDashboard from "./pages/doctor/DoctorDashboard";
+import PatientDashboard from "./pages/patient/PatientDashboard";
+import AllDoctors from "./pages/AllDoctors";
 
-function App() {
-  const [count, setCount] = useState(0)
-
+export default function App() {
   return (
-    <>
-
-      <h1 class="text-3xl font-bold underline">
-        Hello world!
-
-      </h1>
-      <h2 class="text-2xl text-blue-600">
-        Welcome to Tailwind CSS with Vite and React!
-
-      </h2>
-    </>
-  )
+    <Routes>
+      <Route path="/" element={<Layout />}>
+        <Route index element={<Home />} />
+        <Route path="login" element={<Login />} />
+        <Route path="register" element={<Register />} />
+        <Route path="admin/dashboard" element={<AdminDashboard />} />
+        <Route path="doctor/dashboard" element={<DoctorDashboard />} />
+        <Route path="patient/dashboard" element={<PatientDashboard />} />
+        <Route path="AllDoctors" element={<AllDoctors />} />
+      </Route>
+    </Routes>
+  );
 }
-
-export default App
