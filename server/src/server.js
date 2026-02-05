@@ -11,7 +11,7 @@ import { Server } from "socket.io";
 import authRoutes from "./routes/auth.js";
 import appointmentRoutes from "./routes/appointments.js";
 import doctorRoutes from "./routes/doctors.js";
-
+import notificationRoutes from "./routes/notifications.js";
 dotenv.config();
 connectDB();
 
@@ -62,7 +62,7 @@ app.get("/", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/appointments", appointmentRoutes);
 app.use("/api/doctors", doctorRoutes);
-
+app.use("/api/notifications", notificationRoutes);
 
 // -------------------------
 // Start server
