@@ -1,4 +1,4 @@
-// src/pages/PatientProfile.jsx
+// src/pages/PatientDashboard.jsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 
@@ -7,11 +7,15 @@ export default function PatientDashboard() {
   const [patient, setPatient] = useState(null);
   const [activeTab, setActiveTab] = useState("bookings");
   const [saving, setSaving] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
+  const token = localStorage.getItem("token");
+
+  // Fetch appointments
   useEffect(() => {
     const fetchAppointments = async () => {
       try {
-        const token = localStorage.getItem("token");
         const user = JSON.parse(localStorage.getItem("user"));
         setPatient(user);
 
@@ -24,14 +28,48 @@ export default function PatientDashboard() {
       }
     };
     fetchAppointments();
-  }, []);
+  }, [token]);
+
+  // Fetch notifications
+  useEffect(() => {
+    if (!token) return;
+
+    const fetchNotifications = async () => {
+      try {
+        const res = await axios.get("http://localhost:3000/api/notifications/my", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setNotifications(res.data);
+        setUnreadCount(res.data.filter(n => !n.isRead).length);
+      } catch (err) {
+        console.error("Failed to fetch notifications:", err);
+      }
+    };
+
+    fetchNotifications();
+  }, [token]);
+
+  // Mark notification as read
+  const markAsRead = async (id) => {
+    try {
+      await axios.put(`http://localhost:3000/api/notifications/${id}/read`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      // Refresh notifications
+      const updated = notifications.map((n) =>
+        n._id === id ? { ...n, isRead: true } : n
+      );
+      setNotifications(updated);
+      setUnreadCount(updated.filter(n => !n.isRead).length);
+    } catch (err) {
+      console.error("Failed to mark notification as read:", err);
+    }
+  };
 
   // Delete appointment
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to cancel this appointment?")) return;
-
     try {
-      const token = localStorage.getItem("token");
       await axios.delete(`http://localhost:3000/api/appointments/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -46,11 +84,8 @@ export default function PatientDashboard() {
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     if (!patient) return;
-
     try {
       setSaving(true);
-      const token = localStorage.getItem("token");
-
       const res = await axios.put(
         "http://localhost:3000/api/patient/update",
         {
@@ -61,7 +96,6 @@ export default function PatientDashboard() {
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-
       alert("Profile updated successfully!");
       localStorage.setItem("user", JSON.stringify(res.data));
       setPatient(res.data);
@@ -94,7 +128,7 @@ export default function PatientDashboard() {
               </div>
             </div>
 
-            {/* Action Buttons */}
+            {/* Action Buttons / Tabs */}
             <div className="flex gap-4 mt-4 md:mt-0">
               <button
                 onClick={() => setActiveTab("bookings")}
@@ -105,6 +139,21 @@ export default function PatientDashboard() {
                 } hover:bg-blue-500 hover:text-white transition`}
               >
                 My Bookings
+              </button>
+              <button
+                onClick={() => setActiveTab("notifications")}
+                className={`px-4 py-2 rounded border font-semibold relative ${
+                  activeTab === "notifications"
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-gray-700 border-gray-300"
+                } hover:bg-blue-500 hover:text-white transition`}
+              >
+                Notifications
+                {unreadCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-2">
+                    {unreadCount}
+                  </span>
+                )}
               </button>
               <button
                 onClick={() => setActiveTab("settings")}
@@ -121,7 +170,7 @@ export default function PatientDashboard() {
         )}
 
         {/* Content */}
-        {activeTab === "bookings" ? (
+        {activeTab === "bookings" && (
           <div className="bg-white p-6 rounded-lg shadow">
             <h3 className="text-xl font-bold mb-4">My Appointments</h3>
             {appointments.length === 0 ? (
@@ -172,7 +221,31 @@ export default function PatientDashboard() {
               </ul>
             )}
           </div>
-        ) : (
+        )}
+
+        {activeTab === "notifications" && (
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h3 className="text-xl font-bold mb-4">My Notifications</h3>
+            {notifications.length === 0 && (
+              <p className="text-gray-600">No notifications yet.</p>
+            )}
+            {notifications.map((n) => (
+              <div
+                key={n._id}
+                onClick={() => !n.isRead && markAsRead(n._id)}
+                className={`border p-4 rounded mb-2 cursor-pointer ${
+                  !n.isRead ? "bg-gray-100" : ""
+                }`}
+              >
+                <p className="font-semibold">{n.title}</p>
+                <p className="text-sm">{n.message}</p>
+                {!n.isRead && <span className="text-xs text-red-500">New</span>}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === "settings" && (
           <div className="bg-white p-6 rounded-lg shadow">
             <h3 className="text-xl font-bold mb-4">Settings</h3>
             {patient && (
