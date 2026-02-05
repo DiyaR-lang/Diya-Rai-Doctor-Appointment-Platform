@@ -3,26 +3,49 @@ import dotenv from "dotenv";
 import connectDB from "./config/db.js";
 import path from "path";
 import { fileURLToPath } from "url";
+import cors from "cors";
+import http from "http";
+import { Server } from "socket.io";
 
 // Import routes
 import authRoutes from "./routes/auth.js";
 import appointmentRoutes from "./routes/appointments.js";
 import doctorRoutes from "./routes/doctors.js";
 
-import cors from "cors";
-
 dotenv.config();
 connectDB();
 
 const app = express();
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const server = http.createServer(app);
+
+// -------------------------
+// Socket.IO (Realtime ready)
+// -------------------------
+export const io = new Server(server, {
+  cors: {
+    origin: "*", // frontend later
+    methods: ["GET", "POST"],
+  },
+});
+
+io.on("connection", (socket) => {
+  console.log("🔌 Socket connected:", socket.id);
+
+  socket.on("join", (userId) => {
+    socket.join(userId); // patient joins room
+    console.log("User joined room:", userId);
+  });
+
+  socket.on("disconnect", () => {
+    console.log("❌ Socket disconnected:", socket.id);
+  });
+});
 
 // -------------------------
 // Middleware
 // -------------------------
-app.use(cors()); // allow all origins
-app.use(express.json()); // parse JSON
+app.use(cors());
+app.use(express.json());
 
 // Serve uploaded images statically
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
@@ -32,8 +55,6 @@ app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 // -------------------------
 app.get("/", (req, res) => {
   res.json({
-    name: process.env.NAME,
-    version: process.env.VERSION,
     message: "Server is running",
   });
 });
@@ -42,10 +63,11 @@ app.use("/api/auth", authRoutes);
 app.use("/api/appointments", appointmentRoutes);
 app.use("/api/doctors", doctorRoutes);
 
+
 // -------------------------
 // Start server
 // -------------------------
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+server.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
 });
