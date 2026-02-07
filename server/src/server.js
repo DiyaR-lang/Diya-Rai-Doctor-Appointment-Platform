@@ -21,25 +21,30 @@ const server = http.createServer(app);
 // -------------------------
 // Socket.IO (Realtime ready)
 // -------------------------
+
 export const io = new Server(server, {
-  cors: {
-    origin: "*", // frontend later
-    methods: ["GET", "POST"],
-  },
+  cors: { origin: "*" },
 });
+
 
 io.on("connection", (socket) => {
   console.log("🔌 Socket connected:", socket.id);
 
   socket.on("join", (userId) => {
-    socket.join(userId); // patient joins room
-    console.log("User joined room:", userId);
+    if (!userId) {
+      console.error("❌ Cannot join room: userId is null");
+      return;
+    }
+    socket.join(userId);
+    console.log("👤 User joined room:", userId);
   });
 
   socket.on("disconnect", () => {
     console.log("❌ Socket disconnected:", socket.id);
   });
 });
+
+
 
 // -------------------------
 // Middleware
