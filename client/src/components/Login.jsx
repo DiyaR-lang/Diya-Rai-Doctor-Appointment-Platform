@@ -6,10 +6,8 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Check if the user clicked login from navbar
   const forceLogin = new URLSearchParams(location.search).get("force");
 
-  // Prefill email and role if previously stored
   const [form, setForm] = useState({
     email: localStorage.getItem("email") || "",
     password: "",
@@ -19,12 +17,12 @@ export default function Login() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Redirect to dashboard only if token exists AND not coming from navbar login
+  // Redirect if already logged in
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const role = localStorage.getItem("role");
-
-    if (!forceLogin && token && role) {
+    const userStr = localStorage.getItem("user");
+    if (!forceLogin && userStr) {
+      const user = JSON.parse(userStr);
+      const role = user.role;
       if (role === "admin") navigate("/admin/dashboard");
       else if (role === "doctor") navigate("/doctor/dashboard");
       else if (role === "patient") navigate("/patient/dashboard");
@@ -47,18 +45,17 @@ export default function Login() {
         { headers: { "Content-Type": "application/json" } }
       );
 
-      // Save auth data for persistent login
+      // Save full user object + token
       localStorage.setItem("token", res.data.token);
-      localStorage.setItem("role", res.data.user.role);
-      localStorage.setItem("name", res.data.user.name);
+      localStorage.setItem("user", JSON.stringify(res.data.user));
       localStorage.setItem("email", res.data.user.email);
+      localStorage.setItem("role", res.data.user.role);
 
-      // Role-based redirect
+      // Redirect based on role
       const role = res.data.user.role;
       if (role === "admin") navigate("/admin/dashboard");
       else if (role === "doctor") navigate("/doctor/dashboard");
-      else if (role === "patient") navigate("/patient/dashboard");
-      else navigate("/login"); // fallback
+      else navigate("/patient/dashboard");
 
     } catch (err) {
       console.log("Login error:", err.response?.data || err.message);

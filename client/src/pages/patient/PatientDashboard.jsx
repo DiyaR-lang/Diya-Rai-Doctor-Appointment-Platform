@@ -1,310 +1,219 @@
-// src/pages/PatientDashboard.jsx
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
+import { io } from "socket.io-client";
 
 export default function PatientDashboard() {
+  const [activeTab, setActiveTab] = useState("profile");
   const [appointments, setAppointments] = useState([]);
-  const [patient, setPatient] = useState(null);
-  const [activeTab, setActiveTab] = useState("bookings");
-  const [saving, setSaving] = useState(false);
   const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [patient, setPatient] = useState(null);
+  const [socket, setSocket] = useState(null);
 
-  const token = localStorage.getItem("token");
-
-  // Fetch appointments
   useEffect(() => {
-    const fetchAppointments = async () => {
-      try {
-        const user = JSON.parse(localStorage.getItem("user"));
-        setPatient(user);
+    const user = JSON.parse(localStorage.getItem("user"));
+    const token = localStorage.getItem("token");
 
-        const res = await axios.get("http://localhost:3000/api/appointments/my", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setAppointments(res.data);
-      } catch (err) {
-        console.error("Failed to fetch appointments:", err);
-      }
-    };
-    fetchAppointments();
-  }, [token]);
+    if (!user || !token) return;
 
-  // Fetch notifications
-  useEffect(() => {
-    if (!token) return;
+    setPatient(user);
 
-    const fetchNotifications = async () => {
-      try {
-        const res = await axios.get("http://localhost:3000/api/notifications/my", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setNotifications(res.data);
-        setUnreadCount(res.data.filter(n => !n.isRead).length);
-      } catch (err) {
-        console.error("Failed to fetch notifications:", err);
-      }
-    };
+    // Initialize socket
+    const newSocket = io("http://localhost:3000");
+    setSocket(newSocket);
 
-    fetchNotifications();
-  }, [token]);
+    // Join user room
+    newSocket.emit("join", user.id);
 
+    newSocket.on("disconnect", () => {
+      console.log("Socket disconnected");
+    });
+
+    // Listen for notifications
+    newSocket.on("newNotification", (notif) => {
+      setNotifications((prev) => [notif, ...prev]);
+    });
+
+    // Fetch initial data
+    axios
+      .get("http://localhost:3000/api/appointments/my", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((res) => setAppointments(res.data))
+      .catch(() => {});
+
+    axios
+      .get("http://localhost:3000/api/notifications/my", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((res) => setNotifications(res.data))
+      .catch(() => {});
+
+    return () => newSocket.disconnect();
+  }, []);
+
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  // --------------------------
   // Mark notification as read
+  // --------------------------
   const markAsRead = async (id) => {
     try {
-      await axios.put(`http://localhost:3000/api/notifications/${id}/read`, {}, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      // Refresh notifications
-      const updated = notifications.map((n) =>
-        n._id === id ? { ...n, isRead: true } : n
-      );
-      setNotifications(updated);
-      setUnreadCount(updated.filter(n => !n.isRead).length);
-    } catch (err) {
-      console.error("Failed to mark notification as read:", err);
-    }
-  };
-
-  // Delete appointment
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to cancel this appointment?")) return;
-    try {
-      await axios.delete(`http://localhost:3000/api/appointments/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setAppointments((prev) => prev.filter((a) => a._id !== id));
-    } catch (err) {
-      console.error("Failed to delete appointment:", err);
-      alert("Failed to delete appointment. Try again.");
-    }
-  };
-
-  // Update profile
-  const handleUpdateProfile = async (e) => {
-    e.preventDefault();
-    if (!patient) return;
-    try {
-      setSaving(true);
-      const res = await axios.put(
-        "http://localhost:3000/api/patient/update",
-        {
-          name: patient.name,
-          email: patient.email,
-          image: patient.image,
-          bloodType: patient.bloodType,
-        },
+      const token = localStorage.getItem("token");
+      await axios.put(
+        `http://localhost:3000/api/notifications/${id}/read`,
+        {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      alert("Profile updated successfully!");
-      localStorage.setItem("user", JSON.stringify(res.data));
-      setPatient(res.data);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id || n._id === id ? { ...n, isRead: true } : n))
+      );
     } catch (err) {
-      console.error("Failed to update profile:", err);
-      alert("Failed to update profile. Try again.");
-    } finally {
-      setSaving(false);
+      console.error("MARK AS READ ERROR:", err);
     }
+  };
+
+  // --------------------------
+  // Logout function
+  // --------------------------
+  const handleLogout = () => {
+    localStorage.clear();
+    window.location.href = "/login";
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-5xl mx-auto p-6">
-        {/* Header */}
-        {patient && (
-          <div className="flex flex-col md:flex-row items-center md:items-start justify-between bg-white p-6 rounded-lg shadow mb-6">
-            <div className="flex items-center gap-4">
-              <img
-                src={patient.image || "https://via.placeholder.com/100"}
-                alt={patient.name}
-                className="w-24 h-24 rounded-full border-2 border-blue-400 object-cover"
-              />
-              <div>
-                <h2 className="text-2xl font-bold">{patient.name}</h2>
-                <p className="text-gray-600">{patient.email}</p>
-                <p className="text-gray-500">
-                  Blood Type: {patient.bloodType || "-"}
-                </p>
-              </div>
-            </div>
-
-            {/* Action Buttons / Tabs */}
-            <div className="flex gap-4 mt-4 md:mt-0">
-              <button
-                onClick={() => setActiveTab("bookings")}
-                className={`px-4 py-2 rounded border font-semibold ${
-                  activeTab === "bookings"
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "bg-white text-gray-700 border-gray-300"
-                } hover:bg-blue-500 hover:text-white transition`}
-              >
-                My Bookings
-              </button>
-              <button
-                onClick={() => setActiveTab("notifications")}
-                className={`px-4 py-2 rounded border font-semibold relative ${
-                  activeTab === "notifications"
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "bg-white text-gray-700 border-gray-300"
-                } hover:bg-blue-500 hover:text-white transition`}
-              >
-                Notifications
-                {unreadCount > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-2">
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => setActiveTab("settings")}
-                className={`px-4 py-2 rounded border font-semibold ${
-                  activeTab === "settings"
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "bg-white text-gray-700 border-gray-300"
-                } hover:bg-blue-500 hover:text-white transition`}
-              >
-                Settings
-              </button>
-            </div>
+    <div className="min-h-screen bg-gray-100 p-6">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-6">
+        {/* Sidebar */}
+        <div className="bg-white rounded-xl shadow p-4">
+          <div className="bg-blue-600 text-white rounded-xl p-4 flex flex-col items-center">
+            <img
+              src={patient?.image || "https://via.placeholder.com/100"}
+              alt="profile"
+              className="w-20 h-20 rounded-full border-2 border-white object-cover"
+            />
+            <h3 className="mt-2 font-semibold">{patient?.name || "Patient"}</h3>
+            <p className="text-sm opacity-90">{patient?.email}</p>
           </div>
-        )}
 
-        {/* Content */}
-        {activeTab === "bookings" && (
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="text-xl font-bold mb-4">My Appointments</h3>
-            {appointments.length === 0 ? (
-              <p className="text-gray-600">No appointments booked yet.</p>
-            ) : (
-              <ul className="space-y-4">
-                {appointments.map((a) => (
-                  <li
-                    key={a._id}
-                    className="border p-4 rounded-lg flex flex-col md:flex-row gap-4 items-start justify-between"
-                  >
-                    <div className="flex gap-4">
-                      <img
-                        src={a.doctorId?.image || "https://via.placeholder.com/60"}
-                        alt={a.doctorId?.name}
-                        className="w-16 h-16 rounded-full object-cover"
-                      />
-                      <div className="text-gray-700">
-                        <p><strong>Doctor:</strong> {a.doctorId?.name || "N/A"}</p>
-                        <p><strong>Email:</strong> {a.doctorId?.email || "-"}</p>
-                        <p><strong>Date:</strong> {new Date(a.date).toLocaleDateString()}</p>
-                        <p><strong>Time:</strong> {a.time}</p>
-                        <p>
-                          <strong>Status:</strong>{" "}
-                          <span
-                            className={`${
-                              a.status === "confirmed"
-                                ? "text-green-600"
-                                : a.status === "cancelled"
-                                ? "text-red-600"
-                                : "text-yellow-600"
-                            } font-semibold`}
-                          >
-                            {a.status}
-                          </span>
-                        </p>
-                        <p><strong>Notes:</strong> {a.note || "-"}</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleDelete(a._id)}
-                      className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 self-start mt-4 md:mt-0"
-                    >
-                      Cancel
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
+          <ul className="mt-4 space-y-2 text-sm">
+            <li
+              onClick={() => setActiveTab("profile")}
+              className={`p-2 rounded cursor-pointer ${
+                activeTab === "profile" ? "bg-blue-100 text-blue-600" : "hover:bg-gray-100"
+              }`}
+            >
+              👤 Profile & Account
+            </li>
+            <li
+              onClick={() => setActiveTab("appointments")}
+              className={`p-2 rounded cursor-pointer ${
+                activeTab === "appointments" ? "bg-blue-100 text-blue-600" : "hover:bg-gray-100"
+              }`}
+            >
+              📅 My Appointments
+            </li>
+            <li
+              onClick={() => setActiveTab("notifications")}
+              className={`p-2 rounded cursor-pointer flex items-center justify-between ${
+                activeTab === "notifications" ? "bg-blue-100 text-blue-600" : "hover:bg-gray-100"
+              }`}
+            >
+              🔔 Notifications
+              {unreadCount > 0 && (
+                <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+                  {unreadCount}
+                </span>
+              )}
+            </li>
+            <li
+              onClick={handleLogout}
+              className="p-2 rounded cursor-pointer text-red-600 hover:bg-red-100"
+            >
+              🚪 Logout
+            </li>
+          </ul>
+        </div>
 
-        {activeTab === "notifications" && (
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="text-xl font-bold mb-4">My Notifications</h3>
-            {notifications.length === 0 && (
-              <p className="text-gray-600">No notifications yet.</p>
-            )}
-            {notifications.map((n) => (
-              <div
-                key={n._id}
-                onClick={() => !n.isRead && markAsRead(n._id)}
-                className={`border p-4 rounded mb-2 cursor-pointer ${
-                  !n.isRead ? "bg-gray-100" : ""
+        {/* Main Content */}
+        <div className="md:col-span-3 space-y-6">
+          {/* Profile */}
+          {activeTab === "profile" && (
+            <div className="bg-white rounded-xl shadow p-6">
+              <h2 className="text-lg font-bold mb-4">Profile & Account</h2>
+              <p>Name: {patient?.name}</p>
+              <p>Email: {patient?.email}</p>
+              <p>Role: {patient?.role}</p>
+            </div>
+          )}
+
+          {/* Appointments */}
+{activeTab === "appointments" && (
+  <div className="bg-white rounded-xl shadow p-6">
+    <h2 className="text-lg font-bold mb-4">My Appointments</h2>
+    {appointments.length === 0 ? (
+      <p>No appointments yet.</p>
+    ) : (
+      appointments.map((a) => (
+        <div
+          key={a.id || a._id}
+          className="border p-4 rounded mb-3 flex items-center justify-between"
+        >
+          <div>
+            <p><b>Doctor:</b> {a.doctorId?.name}</p>
+            <p><b>Date:</b> {new Date(a.date).toLocaleDateString()}</p>
+            <p><b>Time:</b> {a.time}</p>
+            <p>
+              <b>Status:</b>{" "}
+              <span
+                className={`px-2 py-1 rounded text-white text-xs ${
+                  a.status === "confirmed"
+                    ? "bg-green-600"
+                    : a.status === "pending"
+                    ? "bg-yellow-500"
+                    : "bg-red-600"
                 }`}
               >
-                <p className="font-semibold">{n.title}</p>
-                <p className="text-sm">{n.message}</p>
-                {!n.isRead && <span className="text-xs text-red-500">New</span>}
-              </div>
-            ))}
+                {a.status}
+              </span>
+            </p>
           </div>
-        )}
+          {a.status !== "cancelled" && (
+            <button
+              onClick={() => deleteAppointment(a.id || a._id)}
+              className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+      ))
+    )}
+  </div>
+)}
 
-        {activeTab === "settings" && (
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="text-xl font-bold mb-4">Settings</h3>
-            {patient && (
-              <form className="space-y-4" onSubmit={handleUpdateProfile}>
-                <div>
-                  <label className="block text-gray-700 mb-1">Name:</label>
-                  <input
-                    type="text"
-                    value={patient.name}
-                    onChange={(e) =>
-                      setPatient({ ...patient, name: e.target.value })
-                    }
-                    className="border p-2 rounded w-full"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-700 mb-1">Email:</label>
-                  <input
-                    type="email"
-                    value={patient.email}
-                    onChange={(e) =>
-                      setPatient({ ...patient, email: e.target.value })
-                    }
-                    className="border p-2 rounded w-full"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-700 mb-1">Profile Picture URL:</label>
-                  <input
-                    type="text"
-                    value={patient.image || ""}
-                    onChange={(e) =>
-                      setPatient({ ...patient, image: e.target.value })
-                    }
-                    className="border p-2 rounded w-full"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-700 mb-1">Blood Type:</label>
-                  <input
-                    type="text"
-                    value={patient.bloodType || ""}
-                    onChange={(e) =>
-                      setPatient({ ...patient, bloodType: e.target.value })
-                    }
-                    className="border p-2 rounded w-full"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                >
-                  {saving ? "Saving..." : "Save Changes"}
-                </button>
-              </form>
-            )}
-          </div>
-        )}
+          {/* Notifications */}
+          {activeTab === "notifications" && (
+            <div className="bg-white rounded-xl shadow p-6">
+              <h2 className="text-lg font-bold mb-4">Notifications</h2>
+              {notifications.length === 0 ? (
+                <p>No notifications.</p>
+              ) : (
+                notifications.map((n) => (
+                  <div
+                    key={n.id || n._id}
+                    onClick={() => !n.isRead && markAsRead(n.id || n._id)}
+                    className={`border p-3 rounded mb-2 cursor-pointer ${
+                      n.isRead ? "bg-gray-50" : "bg-blue-50"
+                    }`}
+                  >
+                    <p>{n.title}</p>
+                    <p>{n.message}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

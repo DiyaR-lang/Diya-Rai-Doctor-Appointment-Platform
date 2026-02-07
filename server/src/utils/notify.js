@@ -1,21 +1,18 @@
 import Notification from "../models/Notification.js";
-import { io } from "../server.js";
+import { io } from "../server.js"; // important!
 
 export const sendNotification = async ({ userId, title, message, type }) => {
-  try {
-    const notification = await Notification.create({
-      user: userId,   // ✅ FIXED FIELD NAME
-      title,
-      message,
-      type,
-    });
+  // Save to DB
+  const notification = await Notification.create({
+    user: userId,
+    title,
+    message,
+    type,
+    isRead: false,
+  });
 
-    // 🔔 Realtime push
-    io.to(userId.toString()).emit("newNotification", notification);
+  // 🔥 Emit to patient/doctor room in realtime
+  io.to(userId.toString()).emit("notification:new", notification);
 
-    console.log("🔔 Notification saved:", notification._id);
-    return notification;
-  } catch (err) {
-    console.error("❌ Notification error:", err.message);
-  }
+  return notification;
 };
