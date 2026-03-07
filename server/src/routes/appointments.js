@@ -23,8 +23,9 @@ router.post("/", protect, authorizeRoles("patient"), async (req, res) => {
       date,
       time,
       note,
-      fee,
+      fee: appointmentFee,
       status: "pending",
+      paymentStatus: "pending",
     });
 
     // 🔔 Notify Doctor (Realtime + DB)

@@ -2,6 +2,7 @@ import express from "express";
 import Stripe from "stripe";
 import dotenv from "dotenv";
 import Appointment from "../models/Appointment.js";
+import Doctor from "../models/Doctor.js";
 
 dotenv.config();
 const router = express.Router();
@@ -15,28 +16,24 @@ router.post("/create-payment-intent", async (req, res) => {
   try {
     const { appointmentId } = req.body;
 
-    // Find appointment in DB
-    const appointment = await Appointment.findById(appointmentId);
-    if (!appointment) {
-      return res.status(404).json({ message: "Appointment not found" });
-    }
+    // Populate doctor info to get doctor fee
+    const appointment = await Appointment.findById(appointmentId).populate("doctorId");
+    if (!appointment) return res.status(404).json({ message: "Appointment not found" });
 
-    if (!appointment.fee || appointment.fee <= 0) {
-      return res.status(400).json({ message: "Invalid appointment fee" });
-    }
+    // Use appointment fee if exists, otherwise inherit from doctor
+    const fee = appointment.fee || appointment.doctorId.fee;
+    if (!fee || fee <= 0) return res.status(400).json({ message: "Invalid appointment fee" });
 
-    // Debug
-    console.log("Appointment:", appointment);
-    console.log("Fee (cents):", Math.round(appointment.fee * 100));
+    // Save fee to appointment (for record)
+    appointment.fee = fee;
+    await appointment.save();
 
-    // Create Stripe payment intent
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(appointment.fee * 100), // in cents
-      currency: "usd",
+      amount: Math.round(fee * 100), // in paisa (NPR)
+      currency: "npr",
       metadata: { appointmentId: appointment._id.toString() }
     });
 
-    // Save paymentIntentId
     appointment.paymentIntentId = paymentIntent.id;
     await appointment.save();
 
@@ -56,18 +53,12 @@ router.post("/confirm-payment", async (req, res) => {
     const { appointmentId } = req.body;
 
     const appointment = await Appointment.findById(appointmentId);
-    if (!appointment) {
-      return res.status(404).json({ message: "Appointment not found" });
-    }
+    if (!appointment) return res.status(404).json({ message: "Appointment not found" });
 
-    appointment.paymentStatus = "Paid";
+    appointment.paymentStatus = "paid"; // lowercase to match enum
     await appointment.save();
 
-    res.json({
-      message: "Payment successful",
-      appointment
-    });
-
+    res.json({ message: "Payment successful", appointment });
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: "Error confirming payment" });
