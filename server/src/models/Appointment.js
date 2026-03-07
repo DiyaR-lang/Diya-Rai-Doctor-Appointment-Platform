@@ -28,17 +28,24 @@ const appointmentSchema = new mongoose.Schema(
       
      
     },
-    
     status: {
       type: String,
       enum: ["pending", "confirmed", "cancelled"],
       default: "pending",
     },
-    paymentStatus: {
-  type: String,
-  enum: ["pending", "paid"],
-  default: "pending",
-},
+    
+    paymentMethod: {
+    type: String,
+    enum: ["khalti", "esewa"]
+  },
+
+  paymentStatus: {
+    type: String,
+    enum: ["pending", "paid"],
+    default: "pending"
+  }
+
+
   },
   { timestamps: true }
 );

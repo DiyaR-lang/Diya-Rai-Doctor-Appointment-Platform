@@ -3,66 +3,89 @@ import Stripe from "stripe";
 import dotenv from "dotenv";
 import Appointment from "../models/Appointment.js";
 import Doctor from "../models/Doctor.js";
+import Payment from "../models/payment.js"; // PascalCase
 
 dotenv.config();
 const router = express.Router();
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+// const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+
 
 // -------------------------
-// CREATE PAYMENT INTENT
+// ESEWA INITIATE PAYMENT
 // -------------------------
-router.post("/create-payment-intent", async (req, res) => {
+router.post("/esewa/pay", async (req, res) => {
   try {
     const { appointmentId } = req.body;
 
-    // Populate doctor info to get doctor fee
+    if (!appointmentId) return res.status(400).json({ message: "appointmentId missing" });
+
     const appointment = await Appointment.findById(appointmentId).populate("doctorId");
+
     if (!appointment) return res.status(404).json({ message: "Appointment not found" });
 
-    // Use appointment fee if exists, otherwise inherit from doctor
     const fee = appointment.fee || appointment.doctorId.fee;
-    if (!fee || fee <= 0) return res.status(400).json({ message: "Invalid appointment fee" });
 
-    // Save fee to appointment (for record)
-    appointment.fee = fee;
-    await appointment.save();
+    const paymentData = {
+      amt: fee,
+      psc: 0,
+      pdc: 0,
+      txAmt: 0,
+      tAmt: fee,
+      pid: appointment._id,
+      scd: process.env.ESEWA_MERCHANT_CODE,
+      su: process.env.ESEWA_SUCCESS_URL,
+      fu: process.env.ESEWA_FAILURE_URL
+    };
 
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(fee * 100), // in paisa (NPR)
-      currency: "npr",
-      metadata: { appointmentId: appointment._id.toString() }
+    res.json({
+      message: "Redirect user to eSewa",
+      paymentData,
+      esewaUrl: "https://esewa.com.np/epay/main"
     });
-
-    appointment.paymentIntentId = paymentIntent.id;
-    await appointment.save();
-
-    res.json({ clientSecret: paymentIntent.client_secret });
-
   } catch (error) {
-    console.log("Stripe Error:", error);
-    res.status(500).json({ message: "Payment error" });
+    console.log(error);
+    res.status(500).json({ message: "Error initiating eSewa payment" });
   }
 });
 
 // -------------------------
-// CONFIRM PAYMENT
+// ESEWA SUCCESS
 // -------------------------
-router.post("/confirm-payment", async (req, res) => {
+router.get("/esewa/success", async (req, res) => {
   try {
-    const { appointmentId } = req.body;
+    const { oid, amt, refId } = req.query;
 
-    const appointment = await Appointment.findById(appointmentId);
+    const appointment = await Appointment.findById(oid);
     if (!appointment) return res.status(404).json({ message: "Appointment not found" });
 
-    appointment.paymentStatus = "paid"; // lowercase to match enum
+    appointment.paymentStatus = "paid";
     await appointment.save();
 
-    res.json({ message: "Payment successful", appointment });
+    const payment = new Payment({
+      appointmentId: appointment._id,
+      patientId: appointment.patientId,
+      amount: amt,
+      method: "esewa",
+      transactionId: refId,
+      status: "success"
+    });
+
+    await payment.save();
+
+    res.send("Payment Successful. Appointment Confirmed.");
   } catch (error) {
     console.log(error);
-    res.status(500).json({ message: "Error confirming payment" });
+    res.status(500).send("Payment verification failed");
   }
+});
+
+// -------------------------
+// ESEWA FAILURE
+// -------------------------
+router.get("/esewa/failure", async (req, res) => {
+  res.send("Payment Failed");
 });
 
 export default router;
