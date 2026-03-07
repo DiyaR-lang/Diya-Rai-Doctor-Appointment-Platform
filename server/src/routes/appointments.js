@@ -23,6 +23,7 @@ router.post("/", protect, authorizeRoles("patient"), async (req, res) => {
       date,
       time,
       note,
+      fee,
       status: "pending",
     });
 

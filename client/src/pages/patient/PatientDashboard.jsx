@@ -176,6 +176,7 @@ export default function PatientDashboard() {
                 {a.status}
               </span>
             </p>
+            
           </div>
           {a.status !== "cancelled" && (
             <button

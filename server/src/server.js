@@ -6,6 +6,8 @@ import { fileURLToPath } from "url";
 import cors from "cors";
 import http from "http";
 import { Server } from "socket.io";
+import paymentRoutes from "./routes/payment.js";
+
 
 // Import routes
 import authRoutes from "./routes/auth.js";
@@ -68,6 +70,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/appointments", appointmentRoutes);
 app.use("/api/doctors", doctorRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/payment", paymentRoutes);
 
 // -------------------------
 // Start server

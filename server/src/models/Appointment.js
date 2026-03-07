@@ -23,11 +23,22 @@ const appointmentSchema = new mongoose.Schema(
     note: {
       type: String,
     },
+     fee: {
+      type: Number,
+      default: 20, // Default fee $20
+      required: true
+    },
+    
     status: {
       type: String,
       enum: ["pending", "confirmed", "cancelled"],
       default: "pending",
     },
+    paymentStatus: {
+  type: String,
+  enum: ["pending", "Paid"],
+  default: "pending",
+},
   },
   { timestamps: true }
 );

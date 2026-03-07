@@ -17,7 +17,6 @@ export default function Login() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Redirect if already logged in
   useEffect(() => {
     const userStr = localStorage.getItem("user");
     if (!forceLogin && userStr) {
@@ -45,77 +44,141 @@ export default function Login() {
         { headers: { "Content-Type": "application/json" } }
       );
 
-      // Save full user object + token
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("user", JSON.stringify(res.data.user));
       localStorage.setItem("email", res.data.user.email);
       localStorage.setItem("role", res.data.user.role);
 
-      // Redirect based on role
       const role = res.data.user.role;
       if (role === "admin") navigate("/admin/dashboard");
       else if (role === "doctor") navigate("/doctor/dashboard");
       else navigate("/patient/dashboard");
 
     } catch (err) {
-      console.log("Login error:", err.response?.data || err.message);
       setMessage(err.response?.data?.message || "❌ Login failed");
     } finally {
       setLoading(false);
     }
   };
 
+  // --- UI Styles ---
+  const styles = {
+    container: {
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      minHeight: "100vh",
+      backgroundColor: "#f0f2f5",
+      fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+    },
+    card: {
+      backgroundColor: "#ffffff",
+      padding: "40px",
+      borderRadius: "12px",
+      boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
+      width: "100%",
+      maxWidth: "400px",
+      textAlign: "center",
+    },
+    header: {
+      marginBottom: "24px",
+      color: "#1a1a1b",
+      fontSize: "28px",
+      fontWeight: "600",
+    },
+    input: {
+      width: "100%",
+      padding: "12px 16px",
+      margin: "8px 0",
+      boxSizing: "border-box",
+      borderRadius: "8px",
+      border: "1px solid #ddd",
+      fontSize: "16px",
+      outline: "none",
+      transition: "border-color 0.3s",
+    },
+    button: {
+      width: "100%",
+      padding: "12px",
+      marginTop: "20px",
+      borderRadius: "8px",
+      border: "none",
+      backgroundColor: loading ? "#a0aec0" : "#4A90E2",
+      color: "white",
+      fontSize: "16px",
+      fontWeight: "bold",
+      cursor: loading ? "not-allowed" : "pointer",
+      transition: "background-color 0.3s",
+    },
+    linkText: {
+      marginTop: "20px",
+      fontSize: "14px",
+      color: "#666",
+    },
+    error: {
+      color: "#e53e3e",
+      backgroundColor: "#fff5f5",
+      padding: "10px",
+      borderRadius: "6px",
+      marginTop: "15px",
+      fontSize: "14px",
+      border: "1px solid #feb2b2"
+    }
+  };
+
   return (
-    <div style={{ padding: 30, maxWidth: 400, margin: "auto" }}>
-      <h2>Login</h2>
+    <div style={styles.container}>
+      <div style={styles.card}>
+        <h2 style={styles.header}>Welcome Back</h2>
+        
+        <form onSubmit={handleSubmit}>
+          <input
+            name="email"
+            type="email"
+            placeholder="Email Address"
+            style={styles.input}
+            value={form.email}
+            onChange={handleChange}
+            required
+          />
 
-      <form onSubmit={handleSubmit}>
-        <input
-          name="email"
-          type="email"
-          placeholder="Email"
-          value={form.email}
-          onChange={handleChange}
-          required
-        />
-        <br /><br />
+          <input
+            name="password"
+            type="password"
+            placeholder="Password"
+            style={styles.input}
+            value={form.password}
+            onChange={handleChange}
+            required
+          />
 
-        <input
-          name="password"
-          type="password"
-          placeholder="Password"
-          value={form.password}
-          onChange={handleChange}
-          required
-        />
-        <br /><br />
+          <select
+            name="role"
+            style={styles.input}
+            value={form.role}
+            onChange={handleChange}
+            required
+          >
+            <option value="">Select Your Role</option>
+            <option value="admin">Admin</option>
+            <option value="doctor">Doctor</option>
+            <option value="patient">Patient</option>
+          </select>
 
-        <select
-          name="role"
-          value={form.role}
-          onChange={handleChange}
-          required
-        >
-          <option value="">Select Role</option>
-          <option value="admin">Admin</option>
-          <option value="doctor">Doctor</option>
-          <option value="patient">Patient</option>
-        </select>
-        <br /><br />
+          <button type="submit" disabled={loading} style={styles.button}>
+            {loading ? "Verifying..." : "Login"}
+          </button>
+        </form>
 
-        <button type="submit" disabled={loading}>
-          {loading ? "Logging in..." : "Login"}
-        </button>
-      </form>
+        {message && <div style={styles.error}>{message}</div>}
 
-      {message && <p style={{ color: "red", marginTop: 10 }}>{message}</p>}
-
-      <p style={{ marginTop: 15 }}>
-        Don’t have an account?{" "}
-        <Link to="/register" style={{ color: "blue" }}>
-          Register here
-        </Link>
-      </p>
+        <p style={styles.linkText}>
+          Don’t have an account?{" "}
+          <Link to="/register" style={{ color: "#4A90E2", textDecoration: "none", fontWeight: "600" }}>
+            Register here
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }

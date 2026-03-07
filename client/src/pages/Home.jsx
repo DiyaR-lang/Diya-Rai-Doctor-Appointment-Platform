@@ -82,10 +82,10 @@ const Home = () => {
         <p className="text-gray-500 mb-12">Experienced professionals ready to help you</p>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          <DoctorCard name="Dr. Michael Chen" type="Cardiologist" img="https://i.pravatar.cc/150?u=d1" />
-          <DoctorCard name="Dr. Sarah Williams" type="Dermatologist" img="https://i.pravatar.cc/150?u=d2" />
-          <DoctorCard name="Dr. James Wilson" type="Neurologist" img="https://i.pravatar.cc/150?u=d3" />
-          <DoctorCard name="Dr. Emily Rodriguez" type="Pediatrician" img="https://i.pravatar.cc/150?u=d4" />
+          <DoctorCard name="Dr. Michael Chen" type="Cardiologist" img="" />
+          <DoctorCard name="Dr. Sarah Williams" type="Dermatologist" img="" />
+          <DoctorCard name="Dr. James Wilson" type="Neurologist" img="" />
+          <DoctorCard name="Dr. Emily Rodriguez" type="Pediatrician" img="" />
         </div>
       </section>
 
