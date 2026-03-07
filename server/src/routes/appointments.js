@@ -4,6 +4,7 @@ import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
 import { io } from "../server.js";
 import { sendEmail } from "../utils/sendEmail.js";
 import { sendNotification } from "../utils/notify.js"; // 🔔 NEW
+import Doctor from "../models/Doctor.js";
 
 const router = express.Router();
 
@@ -12,10 +13,19 @@ const router = express.Router();
 // ============================
 router.post("/", protect, authorizeRoles("patient"), async (req, res) => {
   try {
-    const { doctorId, date, time, note } = req.body;
+    const { doctorId, date, time, note, fee } = req.body;
 
     if (!doctorId || !date || !time)
       return res.status(400).json({ message: "All fields required" });
+
+    // Validate doctor exists
+    const doctor = await Doctor.findById(doctorId);
+    if (!doctor) return res.status(404).json({ message: "Doctor not found" });
+
+    // Determine fee: from request or doctor's default
+    let appointmentFee = fee ? Number(fee) : doctor.fee;
+    if (!appointmentFee || appointmentFee <= 0)
+      return res.status(400).json({ message: "Invalid appointment fee" });
 
     const appointment = await Appointment.create({
       doctorId,
@@ -28,7 +38,7 @@ router.post("/", protect, authorizeRoles("patient"), async (req, res) => {
       paymentStatus: "pending",
     });
 
-    // 🔔 Notify Doctor (Realtime + DB)
+    // 🔔 Notify Doctor
     await sendNotification({
       userId: doctorId,
       title: "New Appointment Booked",

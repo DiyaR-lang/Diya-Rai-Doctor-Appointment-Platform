@@ -25,8 +25,8 @@ const appointmentSchema = new mongoose.Schema(
     },
      fee: {
       type: Number,
-      default: 20, // Default fee $20
-      required: true
+      
+     
     },
     
     status: {
@@ -36,7 +36,7 @@ const appointmentSchema = new mongoose.Schema(
     },
     paymentStatus: {
   type: String,
-  enum: ["pending", "Paid"],
+  enum: ["pending", "paid"],
   default: "pending",
 },
   },
