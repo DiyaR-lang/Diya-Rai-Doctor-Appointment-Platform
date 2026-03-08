@@ -1,91 +1,104 @@
-import express from "express";
-import Stripe from "stripe";
-import dotenv from "dotenv";
-import Appointment from "../models/Appointment.js";
-import Doctor from "../models/Doctor.js";
-import Payment from "../models/payment.js"; // PascalCase
+import express from "express"
+import axios from "axios"
+import Appointment from "../models/Appointment.js"
 
-dotenv.config();
-const router = express.Router();
+const router = express.Router()
 
-// const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+/*
+--------------------------------
+1️⃣ INITIATE KHALTI PAYMENT
+--------------------------------
+*/
 
+router.post("/khalti/initiate", async (req, res) => {
 
+try{
 
-// -------------------------
-// ESEWA INITIATE PAYMENT
-// -------------------------
-router.post("/esewa/pay", async (req, res) => {
-  try {
-    const { appointmentId } = req.body;
+const { appointmentId, amount } = req.body
 
-    if (!appointmentId) return res.status(400).json({ message: "appointmentId missing" });
+const payload = {
+return_url: process.env.KHALTI_RETURN_URL,
+website_url: process.env.WEBSITE_URL,
+amount: amount * 100, // Khalti uses paisa
+purchase_order_id: appointmentId,
+purchase_order_name: "Doctor Appointment"
+}
 
-    const appointment = await Appointment.findById(appointmentId).populate("doctorId");
+const response = await axios.post(
+"https://dev.khalti.com/api/v2/epayment/initiate/",
+payload,
+{
+headers:{
+Authorization: `Key ${process.env.KHALTI_SECRET_KEY}`,
+"Content-Type": "application/json"
+}
+}
+)
 
-    if (!appointment) return res.status(404).json({ message: "Appointment not found" });
+res.json({
+success:true,
+payment_url: response.data.payment_url
+})
 
-    const fee = appointment.fee || appointment.doctorId.fee;
+}catch(error){
 
-    const paymentData = {
-      amt: fee,
-      psc: 0,
-      pdc: 0,
-      txAmt: 0,
-      tAmt: fee,
-      pid: appointment._id,
-      scd: process.env.ESEWA_MERCHANT_CODE,
-      su: process.env.ESEWA_SUCCESS_URL,
-      fu: process.env.ESEWA_FAILURE_URL
-    };
+console.log(error)
 
-    res.json({
-      message: "Redirect user to eSewa",
-      paymentData,
-      esewaUrl: "https://esewa.com.np/epay/main"
-    });
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({ message: "Error initiating eSewa payment" });
-  }
-});
+res.json({
+success:false,
+message:"Khalti payment initiation failed"
+})
 
-// -------------------------
-// ESEWA SUCCESS
-// -------------------------
-router.get("/esewa/success", async (req, res) => {
-  try {
-    const { oid, amt, refId } = req.query;
+}
 
-    const appointment = await Appointment.findById(oid);
-    if (!appointment) return res.status(404).json({ message: "Appointment not found" });
+})
 
-    appointment.paymentStatus = "paid";
-    await appointment.save();
+/*
+--------------------------------
+2️⃣ KHALTI CALLBACK
+--------------------------------
+*/
 
-    const payment = new Payment({
-      appointmentId: appointment._id,
-      patientId: appointment.patientId,
-      amount: amt,
-      method: "esewa",
-      transactionId: refId,
-      status: "success"
-    });
+router.get("/khalti/callback", async (req, res) => {
 
-    await payment.save();
+try{
 
-    res.send("Payment Successful. Appointment Confirmed.");
-  } catch (error) {
-    console.log(error);
-    res.status(500).send("Payment verification failed");
-  }
-});
+const { pidx, purchase_order_id } = req.query
 
-// -------------------------
-// ESEWA FAILURE
-// -------------------------
-router.get("/esewa/failure", async (req, res) => {
-  res.send("Payment Failed");
-});
+const lookupResponse = await axios.post(
+"https://dev.khalti.com/api/v2/epayment/lookup/",
+{ pidx },
+{
+headers:{
+Authorization: `Key ${process.env.KHALTI_SECRET_KEY}`,
+"Content-Type":"application/json"
+}
+}
+)
 
-export default router;
+if(lookupResponse.data.status === "Completed"){
+
+await Appointment.findByIdAndUpdate(
+purchase_order_id,
+{ paymentStatus: "paid" }
+)
+
+return res.send("Payment Successful. Appointment Confirmed.")
+
+}else{
+
+return res.send("Payment Failed or Cancelled")
+
+}
+
+}catch(error){
+
+console.log(error)
+
+res.send("Payment Verification Failed")
+
+}
+
+})
+
+export default router

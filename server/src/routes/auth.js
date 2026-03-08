@@ -25,6 +25,7 @@ router.post(
         bio,
         phone,
         address,
+        nmcId ,  // ✅ ADD THIS
       } = req.body;
 
       if (!name || !email || !password || !role)
@@ -39,11 +40,36 @@ router.post(
         return res.status(400).json({ message: "Email already exists." });
 
       // If doctor, check required fields
+      // if (role === "doctor") {
+      //   if (!specialty || !experience || !fee || !phone || !address) {
+      //     return res.status(400).json({ message: "Doctor details required." });
+      //   }
+      // }
       if (role === "doctor") {
-        if (!specialty || !experience || !fee || !phone || !address) {
-          return res.status(400).json({ message: "Doctor details required." });
-        }
-      }
+  if (!specialty || !experience || !fee || !phone || !address || !nmcId) {
+    return res.status(400).json({
+      message: "Doctor details including NMC ID are required."
+    });
+  }
+
+  // NMC format validation
+  const nmcRegex = /^NMC-[0-9]{5}$/;
+
+  if (!nmcRegex.test(nmcId)) {
+    return res.status(400).json({
+      message: "Invalid NMC format. Example: NMC-12345"
+    });
+  }
+
+  // Check duplicate NMC
+  const existingNMC = await Doctor.findOne({ nmcId });
+
+  if (existingNMC) {
+    return res.status(400).json({
+      message: "This NMC ID is already registered"
+    });
+  }
+}
 
       // Create user
       const user = await User.create({ name, email, password, role });
@@ -63,6 +89,7 @@ router.post(
           phone,
           address,
           image, // now includes /uploads/ prefix
+          nmcId,   // ✅ SAVE NMC
         });
       }
 
