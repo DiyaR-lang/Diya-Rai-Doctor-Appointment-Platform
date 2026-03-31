@@ -1,3 +1,4 @@
+// server.js
 import express from "express";
 import dotenv from "dotenv";
 import connectDB from "./config/db.js";
@@ -13,6 +14,11 @@ import appointmentRoutes from "./routes/appointments.js";
 import doctorRoutes from "./routes/doctors.js";
 import notificationRoutes from "./routes/notifications.js";
 import paymentRoutes from "./routes/payment.js";
+import messageRoutes from "./routes/messages.js"; // <-- new
+
+// Models
+import Patient from "./models/Patient.js";
+import Message from "./models/Message.js";
 
 dotenv.config();
 connectDB();
@@ -41,23 +47,43 @@ app.use("/api/appointments", appointmentRoutes);
 app.use("/api/doctors", doctorRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/payment", paymentRoutes);
+app.use("/api/messages", messageRoutes); // <-- message API
 
 // -------------------------
-// Socket.IO
+// Socket.IO - Real-Time Chat
 // -------------------------
 export const io = new Server(server, { cors: { origin: "*" } });
+
+const users = {}; // store connected users
 
 io.on("connection", (socket) => {
   console.log("🔌 Socket connected:", socket.id);
 
-  socket.on("join", (userId) => {
-    if (!userId) return console.error("❌ Cannot join room: userId is null");
-    socket.join(userId);
-    console.log("👤 User joined room:", userId);
+  // Join room
+  socket.on("join_room", ({ patientId, doctorId }) => {
+    const room = patientId + "_" + doctorId;
+    socket.join(room);
+    console.log(`User joined room: ${room}`);
+  });
+
+  // Receive message
+  socket.on("send_message", async (data) => {
+    const { patientId, doctorId, message } = data;
+    const room = patientId + "_" + doctorId;
+
+    // Save message to DB
+    const newMessage = await Message.create({
+      senderId: patientId, // or doctorId depending on sender
+      receiverId: doctorId,
+      message,
+    });
+
+    // Emit to everyone in room
+    io.to(room).emit("receive_message", newMessage);
   });
 
   socket.on("disconnect", () => {
-    console.log("❌ Socket disconnected:", socket.id);
+    console.log("Socket disconnected:", socket.id);
   });
 });
 

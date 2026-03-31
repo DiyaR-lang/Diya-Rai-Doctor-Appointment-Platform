@@ -38,7 +38,7 @@ export default function AllDoctors() {
     setLoading(true);
     try {
       const res = await axios.post(
-        "http://localhost:3000/api/doctors/search",
+        "http://localhost:5000/api/doctors/search",
         filters
       );
       setDoctors(res.data);
@@ -84,7 +84,7 @@ export default function AllDoctors() {
     try {
       const token = localStorage.getItem("token"); // JWT token for backend
       await axios.post(
-        "http://localhost:3000/api/appointments",
+        "http://localhost:5000/api/appointments",
         {
           doctorId: selectedDoctor._id,
           date: appointmentDate,
@@ -200,7 +200,7 @@ export default function AllDoctors() {
                 <img
                   src={
                     doc.image
-                      ? `http://localhost:3000${doc.image}`
+                      ? `http://localhost:5000${doc.image}`
                       : "https://via.placeholder.com/80"
                   }
                   alt={doc.userId?.name || "Doctor"}

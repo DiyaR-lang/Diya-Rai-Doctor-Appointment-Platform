@@ -48,7 +48,7 @@ router.put("/:id/read", protect, async (req, res) => {
 router.get("/unread/count", protect, async (req, res) => {
   try {
     const count = await Notification.countDocuments({
-      userId: req.user._id,
+      user: req.user._id,
       isRead: false,
     });
 

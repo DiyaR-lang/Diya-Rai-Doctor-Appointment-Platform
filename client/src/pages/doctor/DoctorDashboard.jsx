@@ -12,7 +12,7 @@ export default function DoctorDashboard() {
     try {
       setLoading(true);
       const { data } = await axios.get(
-        "http://localhost:3000/api/appointments/doctor/my",
+        "http://localhost:5000/api/appointments/doctor/my",
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setAppointments(data);
@@ -31,7 +31,7 @@ export default function DoctorDashboard() {
   const confirmAppointment = async (id) => {
     try {
       await axios.put(
-        `http://localhost:3000/api/appointments/${id}/confirm`,
+        `http://localhost:5000/api/appointments/${id}/confirm`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -45,7 +45,7 @@ export default function DoctorDashboard() {
   const cancelAppointment = async (id) => {
     try {
       await axios.put(
-        `http://localhost:3000/api/appointments/${id}/cancel`,
+        `http://localhost:5000/api/appointments/${id}/cancel`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );

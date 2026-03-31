@@ -1,3 +1,4 @@
+// src/components/PatientDashboard.jsx
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { io } from "socket.io-client";
@@ -18,7 +19,7 @@ export default function PatientDashboard() {
     setPatient(user);
 
     // Initialize socket
-    const newSocket = io("http://localhost:3000");
+    const newSocket = io("http://localhost:5000", { transports: ["websocket"] });
     setSocket(newSocket);
 
     // Join user room
@@ -28,21 +29,21 @@ export default function PatientDashboard() {
       console.log("Socket disconnected");
     });
 
-    // Listen for notifications
-    newSocket.on("newNotification", (notif) => {
+    // Listen for real-time notifications
+    newSocket.on("new_notification", (notif) => {
       setNotifications((prev) => [notif, ...prev]);
     });
 
     // Fetch initial data
     axios
-      .get("http://localhost:3000/api/appointments/my", {
+      .get("http://localhost:5000/api/appointments/my", {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => setAppointments(res.data))
       .catch(() => {});
 
     axios
-      .get("http://localhost:3000/api/notifications/my", {
+      .get("http://localhost:5000/api/notifications/my", {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => setNotifications(res.data))
@@ -60,7 +61,7 @@ export default function PatientDashboard() {
     try {
       const token = localStorage.getItem("token");
       await axios.put(
-        `http://localhost:3000/api/notifications/${id}/read`,
+        `http://localhost:5000/api/notifications/${id}/read`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -79,6 +80,97 @@ export default function PatientDashboard() {
     localStorage.clear();
     window.location.href = "/login";
   };
+
+  // --------------------------
+  // Delete appointment
+  // --------------------------
+  const deleteAppointment = async (id) => {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.delete(`http://localhost:5000/api/appointments/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setAppointments((prev) => prev.filter((a) => a.id !== id && a._id !== id));
+    } catch (err) {
+      console.error("DELETE APPOINTMENT ERROR:", err);
+    }
+  };
+
+  // --------------------------
+  // Chat Component
+  // --------------------------
+  function ChatComponent({ patientId, doctorId }) {
+    const [messages, setMessages] = useState([]);
+    const [input, setInput] = useState("");
+    const [chatSocket, setChatSocket] = useState(null);
+
+    // Initialize socket for chat
+    useEffect(() => {
+      const newSocket = io("http://localhost:5000", { transports: ["websocket"] });
+      setChatSocket(newSocket);
+
+      // Join patient-doctor room
+      newSocket.emit("join_room", { patientId, doctorId });
+
+      // Listen for incoming messages
+      newSocket.on("receive_message", (msg) => {
+        setMessages((prev) => [...prev, msg]);
+      });
+
+      return () => newSocket.disconnect();
+    }, [patientId, doctorId]);
+
+    // Fetch chat history
+    useEffect(() => {
+      const fetchMessages = async () => {
+        try {
+          const res = await axios.get(
+            `http://localhost:5000/api/messages/${patientId}/${doctorId}`
+          );
+          setMessages(res.data);
+        } catch (err) {
+          console.error(err);
+        }
+      };
+      fetchMessages();
+    }, [patientId, doctorId]);
+
+    const handleSend = () => {
+      if (!input.trim()) return;
+      chatSocket.emit("send_message", { patientId, doctorId, message: input });
+      setInput("");
+    };
+
+    return (
+      <div>
+        <div
+          style={{
+            border: "1px solid lightgray",
+            height: "300px",
+            overflowY: "scroll",
+            padding: "5px",
+            marginBottom: "10px",
+          }}
+        >
+          {messages.map((msg) => (
+            <div key={msg._id} style={{ marginBottom: "5px" }}>
+              <b>{msg.senderId === patientId ? "You" : "Doctor"}:</b> {msg.message}
+            </div>
+          ))}
+        </div>
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Type your message"
+          style={{ width: "80%" }}
+        />
+        <button onClick={handleSend} style={{ width: "18%", marginLeft: "2%" }}>
+          Send
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
@@ -126,6 +218,14 @@ export default function PatientDashboard() {
               )}
             </li>
             <li
+              onClick={() => setActiveTab("chat")}
+              className={`p-2 rounded cursor-pointer ${
+                activeTab === "chat" ? "bg-blue-100 text-blue-600" : "hover:bg-gray-100"
+              }`}
+            >
+              💬 Chat
+            </li>
+            <li
               onClick={handleLogout}
               className="p-2 rounded cursor-pointer text-red-600 hover:bg-red-100"
             >
@@ -147,50 +247,49 @@ export default function PatientDashboard() {
           )}
 
           {/* Appointments */}
-{activeTab === "appointments" && (
-  <div className="bg-white rounded-xl shadow p-6">
-    <h2 className="text-lg font-bold mb-4">My Appointments</h2>
-    {appointments.length === 0 ? (
-      <p>No appointments yet.</p>
-    ) : (
-      appointments.map((a) => (
-        <div
-          key={a.id || a._id}
-          className="border p-4 rounded mb-3 flex items-center justify-between"
-        >
-          <div>
-            <p><b>Doctor:</b> {a.doctorId?.name}</p>
-            <p><b>Date:</b> {new Date(a.date).toLocaleDateString()}</p>
-            <p><b>Time:</b> {a.time}</p>
-            <p>
-              <b>Status:</b>{" "}
-              <span
-                className={`px-2 py-1 rounded text-white text-xs ${
-                  a.status === "confirmed"
-                    ? "bg-green-600"
-                    : a.status === "pending"
-                    ? "bg-yellow-500"
-                    : "bg-red-600"
-                }`}
-              >
-                {a.status}
-              </span>
-            </p>
-            
-          </div>
-          {a.status !== "cancelled" && (
-            <button
-              onClick={() => deleteAppointment(a.id || a._id)}
-              className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
-            >
-              Cancel
-            </button>
+          {activeTab === "appointments" && (
+            <div className="bg-white rounded-xl shadow p-6">
+              <h2 className="text-lg font-bold mb-4">My Appointments</h2>
+              {appointments.length === 0 ? (
+                <p>No appointments yet.</p>
+              ) : (
+                appointments.map((a) => (
+                  <div
+                    key={a.id || a._id}
+                    className="border p-4 rounded mb-3 flex items-center justify-between"
+                  >
+                    <div>
+                      <p><b>Doctor:</b> {a.doctorId?.name}</p>
+                      <p><b>Date:</b> {new Date(a.date).toLocaleDateString()}</p>
+                      <p><b>Time:</b> {a.time}</p>
+                      <p>
+                        <b>Status:</b>{" "}
+                        <span
+                          className={`px-2 py-1 rounded text-white text-xs ${
+                            a.status === "confirmed"
+                              ? "bg-green-600"
+                              : a.status === "pending"
+                              ? "bg-yellow-500"
+                              : "bg-red-600"
+                          }`}
+                        >
+                          {a.status}
+                        </span>
+                      </p>
+                    </div>
+                    {a.status !== "cancelled" && (
+                      <button
+                        onClick={() => deleteAppointment(a.id || a._id)}
+                        className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
           )}
-        </div>
-      ))
-    )}
-  </div>
-)}
 
           {/* Notifications */}
           {activeTab === "notifications" && (
@@ -212,6 +311,14 @@ export default function PatientDashboard() {
                   </div>
                 ))
               )}
+            </div>
+          )}
+
+          {/* Chat */}
+          {activeTab === "chat" && (
+            <div className="bg-white rounded-xl shadow p-6">
+              <h2 className="text-lg font-bold mb-4">Chat with Doctor</h2>
+              <ChatComponent patientId={patient?.id} doctorId={"69821f8f1a956230db049f0a"} />
             </div>
           )}
         </div>

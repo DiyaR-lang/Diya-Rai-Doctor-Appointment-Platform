@@ -17,7 +17,7 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["appointment_booked", "appointment_confirmed", "appointment_cancelled"],
+      enum: ["appointment_booked", "appointment_confirmed", "appointment_cancelled", "chat_message"],
       required: true,
     },
     isRead: {
