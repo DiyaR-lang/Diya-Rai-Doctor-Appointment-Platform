@@ -1,20 +1,45 @@
 import express from "express";
 import Notification from "../models/Notification.js";
 import { protect } from "../middleware/authMiddleware.js";
+import { io } from "../server.js"; // Import your Socket server instance
 
 const router = express.Router();
 
+/**
+ * HELPER FUNCTION: Create & Send Real-time Notification
+ * Call this function from appointments.js or messages.js
+ */
+export const createNotification = async (userId, title, message, type) => {
+  try {
+    // 1. Save to MongoDB so it persists
+    const notification = new Notification({
+      user: userId,
+      title,
+      message,
+      type,
+    });
+    await notification.save();
+
+    // 2. Emit via Socket.io to the specific user's private room
+    // The room name is the User ID (set up in your server.js 'join_user')
+    io.to(userId.toString()).emit("new_notification", notification);
+
+    console.log(`Notification sent to User: ${userId}`);
+    return notification;
+  } catch (err) {
+    console.error("NOTIFICATION HELPER ERROR:", err);
+  }
+};
+
 // ============================
-// GET MY NOTIFICATIONS
+// GET DOCTOR'S NOTIFICATIONS
 // ============================
 router.get("/my", protect, async (req, res) => {
   try {
     const notifications = await Notification.find({ user: req.user._id })
       .sort({ createdAt: -1 });
-
     res.json(notifications);
   } catch (err) {
-    console.error("FETCH NOTIFICATIONS ERROR:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -24,26 +49,21 @@ router.get("/my", protect, async (req, res) => {
 // ============================
 router.put("/:id/read", protect, async (req, res) => {
   try {
-    const notification = await Notification.findOne({
-      _id: req.params.id,
-      user: req.user._id,
-    });
+    const notification = await Notification.findOneAndUpdate(
+      { _id: req.params.id, user: req.user._id },
+      { isRead: true },
+      { new: true }
+    );
 
-    if (!notification)
-      return res.status(404).json({ message: "Notification not found" });
-
-    notification.isRead = true;
-    await notification.save();
-
-    res.json({ message: "Marked as read", notification });
+    if (!notification) return res.status(404).json({ message: "Not found" });
+    res.json(notification);
   } catch (err) {
-    console.error("MARK READ ERROR:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
 
 // ============================
-// UNREAD COUNT
+// GET UNREAD COUNT
 // ============================
 router.get("/unread/count", protect, async (req, res) => {
   try {
@@ -51,10 +71,8 @@ router.get("/unread/count", protect, async (req, res) => {
       user: req.user._id,
       isRead: false,
     });
-
     res.json({ count });
   } catch (err) {
-    console.error("UNREAD COUNT ERROR:", err);
     res.status(500).json({ message: "Server error" });
   }
 });

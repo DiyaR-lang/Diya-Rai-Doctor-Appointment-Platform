@@ -7,7 +7,11 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import DoctorDashboard from "./pages/doctor/DoctorDashboard";
 import PatientDashboard from "./pages/patient/PatientDashboard";
 import AllDoctors from "./pages/AllDoctors";
-import Chat from "./components/Chat";
+
+
+
+
+// import Chat from "./components/Chat";
 import Notifications from "./components/Notifications";
 
 export default function App() {
@@ -21,7 +25,7 @@ export default function App() {
         <Route path="doctor/dashboard" element={<DoctorDashboard />} />
         <Route path="patient/dashboard" element={<PatientDashboard />} />
         <Route path="AllDoctors" element={<AllDoctors />} />
-        <Route path="Chat" element={<Chat/>} />
+        {/* <Route path="Chat" element={<Chat/>} /> */}
         <Route path="Notifications" element={<Notifications/>} />
 
       </Route>
