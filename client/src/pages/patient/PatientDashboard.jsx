@@ -1,6 +1,11 @@
 import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import { io } from "socket.io-client";
+import { 
+  User, Calendar, Bell, MessageSquare, LogOut, 
+  Video, Image as ImageIcon, Send, Clock, CheckCircle2, 
+  Activity, Droplets, Scale, ShieldCheck, X
+} from "lucide-react";
 
 export default function PatientDashboard() {
   const [activeTab, setActiveTab] = useState("profile");
@@ -19,7 +24,6 @@ export default function PatientDashboard() {
     if (!user || !token) return;
     setPatient(user);
 
-    // Initializing Socket with transport fixes
     const newSocket = io("http://localhost:5000", { 
       transports: ["websocket", "polling"],
       withCredentials: true,
@@ -44,6 +48,9 @@ export default function PatientDashboard() {
     try {
       const apptRes = await axios.get("http://localhost:5000/api/appointments/my", { headers: { Authorization: `Bearer ${token}` } });
       setAppointments(apptRes.data);
+      // Helpful for debugging image paths:
+      console.log("My Appointments Data:", apptRes.data);
+      
       const notifRes = await axios.get("http://localhost:5000/api/notifications/my", { headers: { Authorization: `Bearer ${token}` } });
       setNotifications(notifRes.data);
     } catch (err) { console.error(err); }
@@ -71,7 +78,7 @@ export default function PatientDashboard() {
   };
 
   // ---------------------------------------------------------
-  // ENHANCED CHAT BOX (VIDEO CALL + IMAGE + REALTIME SYNC)
+  // CHAT BOX (LOGIC RESTORED & UI PERMANENT)
   // ---------------------------------------------------------
   function ChatBox({ patientId, doctor, mainSocket }) {
     const [messages, setMessages] = useState([]);
@@ -79,7 +86,6 @@ export default function PatientDashboard() {
     const fileInputRef = useRef();
     const scrollRef = useRef();
     
-    // Determine the Doctor's User ID
     const doctorUserId = doctor?.userId?._id || doctor?.userId || doctor?._id;
 
     useEffect(() => {
@@ -118,7 +124,7 @@ export default function PatientDashboard() {
       };
 
       mainSocket.emit("send_message", msgObj);
-      setMessages((prev) => [...prev, msgObj]);
+      setMessages((prev) => [...prev, msgObj]); 
       setInput("");
     };
 
@@ -142,43 +148,43 @@ export default function PatientDashboard() {
     };
 
     return (
-      <div className="flex flex-col h-full bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
-        <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+      <div className="flex flex-col h-full bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-100">
+        <div className="p-4 bg-sky-600 text-white flex items-center justify-between shadow-md">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center font-bold">
-              {doctor?.userId?.name?.charAt(0)}
+            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center font-bold border border-white/30 overflow-hidden">
+              {doctor?.userId?.image ? (
+                <img src={`http://localhost:5000${doctor.userId.image}`} alt="Dr" className="w-full h-full object-cover" />
+              ) : doctor?.userId?.name?.charAt(0)}
             </div>
-            <h3 className="font-bold text-sm">Dr. {doctor?.userId?.name}</h3>
+            <div>
+              <h3 className="font-bold text-sm">Dr. {doctor?.userId?.name}</h3>
+              <p className="text-[10px] text-sky-100 uppercase tracking-widest font-semibold">Active Session</p>
+            </div>
           </div>
-          
           <div className="flex gap-2">
-            <button onClick={initiateVideoCall} className="text-[10px] font-black bg-blue-600 px-4 py-2 rounded-xl hover:bg-blue-700 transition-all active:scale-95">
-              📞 VIDEO CALL
-            </button>
-            <button onClick={() => fileInputRef.current.click()} className="text-[10px] font-black bg-white/10 px-4 py-2 rounded-xl hover:bg-white/20 transition-all">
-              📷 ATTACH
-            </button>
+            <button onClick={initiateVideoCall} className="p-2 hover:bg-white/10 rounded-xl transition-all"><Video size={18}/></button>
+            <button onClick={() => fileInputRef.current.click()} className="p-2 hover:bg-white/10 rounded-xl transition-all"><ImageIcon size={18}/></button>
           </div>
-          <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#F8FAFC]">
           {messages.map((msg, i) => {
             const isImage = msg.message.match(/\.(jpeg|jpg|gif|png|jfif|webp)$/i);
             const isVideoCall = msg.messageType === "video_call";
+            const isMe = msg.senderId === patientId;
 
             return (
-              <div key={i} className={`flex ${msg.senderId === patientId ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[80%] p-3 rounded-2xl ${msg.senderId === patientId ? "bg-slate-800 text-white rounded-tr-none" : "bg-white border text-slate-800 rounded-tl-none shadow-sm"}`}>
+              <div key={i} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                <div className={`max-w-[75%] p-3 rounded-2xl ${isMe ? "bg-sky-600 text-white rounded-tr-none shadow-md" : "bg-white border text-slate-800 rounded-tl-none shadow-sm"}`}>
                   {isVideoCall ? (
-                    <div className="text-center p-2">
-                      <p className="text-[10px] font-black uppercase opacity-60 mb-2">Video Consultation Request</p>
-                      <button onClick={() => window.open(`/video-call/${msg.message}`, "_blank")} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-black text-[10px] hover:bg-blue-700">JOIN CALL</button>
+                    <div className="text-center p-1">
+                      <p className="text-[10px] font-bold uppercase mb-2">Video Link Sent</p>
+                      <button onClick={() => window.open(`/video-call/${msg.message}`, "_blank")} className={`px-4 py-1.5 rounded-lg font-bold text-[10px] ${isMe ? "bg-white text-sky-600" : "bg-sky-600 text-white"}`}>JOIN CALL</button>
                     </div>
                   ) : isImage ? (
-                    <img src={msg.message} className="rounded-lg max-h-64 object-cover" alt="attachment" />
+                    <img src={msg.message} className="rounded-lg max-h-48 object-cover" alt="attachment" />
                   ) : (
-                    <p className="text-sm">{msg.message}</p>
+                    <p className="text-sm leading-relaxed">{msg.message}</p>
                   )}
                 </div>
               </div>
@@ -187,55 +193,90 @@ export default function PatientDashboard() {
           <div ref={scrollRef} />
         </div>
 
-        <div className="p-4 border-t flex gap-2">
-          <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSend()} placeholder="Ask the doctor..." className="flex-1 bg-slate-100 rounded-xl px-4 py-3 outline-none" />
-          <button onClick={() => handleSend()} className="bg-slate-900 text-white px-8 rounded-xl font-bold">SEND</button>
+        <div className="p-4 border-t bg-white flex gap-2 items-center">
+          <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSend()} placeholder="Type a message..." className="flex-1 bg-slate-100 rounded-2xl px-5 py-3 text-sm outline-none border border-transparent focus:border-sky-300 transition-all" />
+          <button onClick={() => handleSend()} className="bg-sky-600 text-white p-3 rounded-2xl hover:bg-sky-700 transition-all shadow-lg shadow-sky-100"><Send size={20}/></button>
         </div>
+        <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" />
       </div>
     );
   }
 
-  // --------------------------
-  // UI LAYOUT
-  // --------------------------
   return (
-    <div className="min-h-screen bg-[#F8FAFC] p-4 md:p-8 font-sans">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-8">
-        <aside className="lg:col-span-1 space-y-4">
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 text-center shadow-sm">
-            <img src={patient?.image ? `http://localhost:5000${patient.image}` : null} className="w-20 h-20 rounded-2xl mx-auto object-cover mb-4 shadow-md ring-4 ring-slate-50" alt="" />
-            <h3 className="font-bold text-slate-900">{patient?.name}</h3>
-            <p className="text-xs text-slate-400">{patient?.email}</p>
+    <div className="min-h-screen bg-[#F4F7FA] p-4 md:p-6 font-sans text-slate-800">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* SIDEBAR */}
+        <aside className="lg:col-span-3 space-y-4">
+          <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-200/50 text-center">
+            <img 
+              src={patient?.image ? `http://localhost:5000${patient.image}` : "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"} 
+              className="w-24 h-24 rounded-3xl mx-auto object-cover mb-4 ring-4 ring-sky-50 shadow-md" 
+              alt="Profile" 
+            />
+            <h3 className="font-bold text-xl text-slate-900">{patient?.name}</h3>
+            <p className="text-xs font-semibold text-slate-400 mt-1 uppercase tracking-widest flex items-center justify-center gap-1">
+              <ShieldCheck size={14} className="text-emerald-500"/> Patient Verified
+            </p>
           </div>
 
-          <nav className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+          <nav className="bg-white/80 backdrop-blur-md rounded-[2rem] p-2 shadow-sm border border-slate-200/60">
             {[
-              { id: "profile", label: "Profile", icon: "🏠" },
-              { id: "appointments", label: "My Visits", icon: "📅" },
-              { id: "notifications", label: "Alerts", icon: "🔔", badge: unreadCount },
-              { id: "chat", label: "Consultation", icon: "💬" }
+              { id: "profile", label: "Dashboard", icon: <Activity size={18}/> },
+              { id: "appointments", label: "My Visits", icon: <Calendar size={18}/> },
+              { id: "notifications", label: "Inbox", icon: <Bell size={18}/>, badge: unreadCount },
+              { id: "chat", label: "Consultation", icon: <MessageSquare size={18}/> }
             ].map((t) => (
-              <button key={t.id} onClick={() => setActiveTab(t.id)} className={`w-full flex items-center justify-between px-6 py-4 text-sm font-bold transition-all ${activeTab === t.id ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-50"}`}>
-                <span className="flex items-center gap-3"><span>{t.icon}</span> {t.label}</span>
-                {t.badge > 0 && <span className="bg-blue-500 text-white text-[10px] px-2 py-0.5 rounded-full">{t.badge}</span>}
+              <button 
+                key={t.id} 
+                onClick={() => setActiveTab(t.id)} 
+                className={`w-full flex items-center justify-between px-5 py-4 my-1 rounded-2xl text-sm font-bold transition-all duration-300 ${activeTab === t.id ? "bg-sky-600 text-white shadow-lg shadow-sky-100" : "text-slate-500 hover:bg-sky-50 hover:text-sky-600"}`}
+              >
+                <span className="flex items-center gap-4">{t.icon} {t.label}</span>
+                {t.badge > 0 && <span className="bg-rose-500 text-white text-[10px] px-2 py-0.5 rounded-full">{t.badge}</span>}
               </button>
             ))}
-            <button onClick={handleLogout} className="w-full text-left px-6 py-4 text-sm font-bold text-red-500 hover:bg-red-50">Logout</button>
+            <button onClick={handleLogout} className="w-full flex items-center gap-4 px-5 py-4 text-sm font-bold text-rose-500 hover:bg-rose-50 rounded-2xl transition-all">
+              <LogOut size={18} /> Logout
+            </button>
           </nav>
         </aside>
 
-        <main className="lg:col-span-3 bg-white border border-slate-200 rounded-3xl p-6 md:p-10 shadow-sm min-h-[700px]">
+        {/* MAIN CONTENT */}
+        <main className="lg:col-span-9 bg-white rounded-[2.5rem] p-6 md:p-10 shadow-xl border border-slate-200/50 min-h-[720px]">
+          
           {activeTab === "profile" && (
-            <div className="space-y-8 animate-in fade-in duration-500">
-              <h2 className="text-3xl font-black text-slate-900 tracking-tight">Personal Records</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Name</span>
-                  <p className="text-xl font-bold text-slate-800 mt-1">{patient?.name}</p>
+            <div className="animate-in fade-in duration-500 space-y-8">
+              <header>
+                <h2 className="text-4xl font-black text-slate-900 tracking-tight">Your <span className="text-sky-600">Health Card</span></h2>
+              </header>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 flex flex-col gap-3">
+                  <div className="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-rose-500"><Droplets/></div>
+                  <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Blood Group</p><p className="font-bold text-xl">O+ Positive</p></div>
                 </div>
-                <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Account</span>
-                  <p className="text-xl font-bold text-slate-800 mt-1">{patient?.email}</p>
+                <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 flex flex-col gap-3">
+                  <div className="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-sky-500"><Scale/></div>
+                  <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Weight Status</p><p className="font-bold text-xl">74.5 KG</p></div>
+                </div>
+                <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 flex flex-col gap-3">
+                  <div className="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-emerald-500"><Activity/></div>
+                  <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Heart Rate</p><p className="font-bold text-xl">72 BPM</p></div>
+                </div>
+              </div>
+
+              <div className="p-8 bg-gradient-to-br from-slate-900 to-slate-800 rounded-[2.5rem] text-white shadow-2xl">
+                <h4 className="text-sky-400 font-bold text-xs uppercase tracking-[0.2em] mb-6">Patient Identification</h4>
+                <div className="grid md:grid-cols-2 gap-8">
+                  <div>
+                    <p className="text-slate-500 text-[10px] font-bold uppercase">Official Name</p>
+                    <p className="text-xl font-bold tracking-wide mt-1">{patient?.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500 text-[10px] font-bold uppercase">Email Account</p>
+                    <p className="text-xl font-bold tracking-wide mt-1">{patient?.email}</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -243,56 +284,87 @@ export default function PatientDashboard() {
 
           {activeTab === "appointments" && (
             <div className="space-y-6 animate-in fade-in duration-500">
-              <h2 className="text-3xl font-black text-slate-900">Your Visits</h2>
-              {appointments.map((a) => (
-                <div key={a._id} className="p-5 border border-slate-100 rounded-2xl flex items-center justify-between hover:bg-slate-50 transition-colors">
-                  <div className="flex items-center gap-4">
-                    <img src={a.doctorId?.userId?.image ? `http://localhost:5000${a.doctorId.userId.image}` : null} className="w-12 h-12 rounded-xl object-cover" alt="" />
-                    <div>
-                      <p className="font-bold text-slate-800">Dr. {a.doctorId?.userId?.name}</p>
-                      <p className="text-xs text-slate-400">{new Date(a.date).toLocaleDateString()} • {a.time}</p>
+              <h2 className="text-3xl font-black text-slate-900">Appointment <span className="text-sky-600">History</span></h2>
+              <div className="grid gap-4">
+                {appointments.map((a) => (
+                  <div key={a._id} className="p-6 bg-white border border-slate-100 rounded-[2rem] flex items-center justify-between hover:shadow-xl hover:shadow-sky-50 transition-all duration-300">
+                    <div className="flex items-center gap-5">
+                      <div className="w-16 h-16 bg-sky-50 rounded-2xl overflow-hidden shadow-inner ring-2 ring-slate-50">
+                        {/* THE DOCTOR IMAGE LOGIC IS HERE */}
+                        <img 
+                          src={a.doctorId?.userId?.image ? `http://localhost:5000${a.doctorId.userId.image}` : "https://cdn-icons-png.flaticon.com/512/387/387561.png"} 
+                          className="w-full h-full object-cover" 
+                          alt="Doctor" 
+                          onError={(e) => { e.target.src = "https://cdn-icons-png.flaticon.com/512/387/387561.png"; }}
+                        />
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-900 text-lg">Dr. {a.doctorId?.userId?.name}</p>
+                        <div className="flex items-center gap-3 mt-1 text-slate-400 font-semibold text-xs">
+                          <span className="bg-slate-50 px-2 py-1 rounded-md flex items-center gap-1"><Calendar size={12}/> {new Date(a.date).toLocaleDateString()}</span>
+                          <span className="bg-slate-50 px-2 py-1 rounded-md flex items-center gap-1"><Clock size={12}/> {a.time}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className={`text-[10px] font-black uppercase px-4 py-2 rounded-full tracking-wider ${a.status === 'confirmed' ? 'bg-emerald-500 text-white' : 'bg-amber-400 text-white'}`}>
+                        {a.status}
+                      </span>
+                      <button onClick={() => deleteAppointment(a._id)} className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"><X size={20}/></button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <span className={`text-[10px] font-black uppercase px-4 py-1 rounded-full ${a.status === 'confirmed' ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'}`}>{a.status}</span>
-                    <button onClick={() => deleteAppointment(a._id)} className="text-xs text-red-400 font-bold">Cancel</button>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
 
           {activeTab === "notifications" && (
-            <div className="space-y-4 animate-in fade-in duration-500">
-              <h2 className="text-3xl font-black text-slate-900">Recent Alerts</h2>
-              {notifications.map((n) => (
-                <div key={n._id} onClick={() => !n.isRead && markAsRead(n._id)} className={`p-5 rounded-2xl border transition-all cursor-pointer ${n.isRead ? "bg-white opacity-60" : "bg-blue-50 border-blue-100 shadow-sm"}`}>
-                  <p className="text-sm font-bold text-slate-800">{n.title}</p>
-                  <p className="text-xs text-slate-500 mt-1">{n.message}</p>
-                </div>
-              ))}
+            <div className="space-y-6 animate-in fade-in duration-500">
+              <h2 className="text-3xl font-black text-slate-900">Alert <span className="text-sky-600">Center</span></h2>
+              <div className="space-y-3">
+                {notifications.map((n) => (
+                  <div key={n._id} onClick={() => !n.isRead && markAsRead(n._id)} className={`p-6 rounded-[2rem] border transition-all cursor-pointer relative overflow-hidden ${n.isRead ? "bg-slate-50/50 border-transparent opacity-60" : "bg-white border-sky-100 shadow-lg"}`}>
+                    {!n.isRead && <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-sky-500"></div>}
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">{n.title}</p>
+                        <p className="text-xs text-slate-500 mt-2 leading-relaxed font-medium">{n.message}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
           {activeTab === "chat" && (
-            <div className="flex h-[600px] gap-6 animate-in fade-in duration-500">
-              <div className="w-1/3 border border-slate-200 rounded-3xl overflow-hidden bg-slate-50">
-                <div className="p-4 bg-white border-b text-[10px] font-black text-slate-400 uppercase tracking-widest">Consultations</div>
-                <div className="flex-1 overflow-y-auto">
+            <div className="flex h-[620px] gap-6 animate-in fade-in duration-500">
+              <div className="w-1/3 bg-slate-50/50 rounded-[2rem] border border-slate-100 overflow-hidden flex flex-col">
+                <div className="p-5 bg-white border-b font-black text-[10px] text-slate-400 uppercase tracking-widest">Select Doctor</div>
+                <div className="flex-1 overflow-y-auto p-3 space-y-2">
                   {appointments.filter(a => a.status === 'confirmed').map(a => (
-                    <div key={a._id} onClick={() => setSelectedDoctor(a.doctorId)} className={`p-4 border-b cursor-pointer transition-all ${selectedDoctor?._id === a.doctorId._id ? "bg-blue-600 text-white" : "hover:bg-blue-50 text-slate-700"}`}>
-                      <p className="text-xs font-black uppercase">DR. {a.doctorId?.userId?.name}</p>
+                    <div key={a._id} onClick={() => setSelectedDoctor(a.doctorId)} className={`p-4 rounded-2xl cursor-pointer transition-all flex items-center gap-4 ${selectedDoctor?._id === a.doctorId._id ? "bg-sky-600 text-white shadow-xl" : "bg-white hover:bg-sky-50 text-slate-600 border border-slate-100"}`}>
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold overflow-hidden ${selectedDoctor?._id === a.doctorId._id ? "bg-white/20" : "bg-sky-100 text-sky-600"}`}>
+                        {a.doctorId?.userId?.image ? (
+                          <img src={`http://localhost:5000${a.doctorId.userId.image}`} className="w-full h-full object-cover" alt="" />
+                        ) : a.doctorId?.userId?.name?.charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold truncate">Dr. {a.doctorId?.userId?.name}</p>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
               <div className="flex-1">
-                {selectedDoctor ? <ChatBox patientId={patient?._id || patient?.id} doctor={selectedDoctor} mainSocket={socket} /> : 
-                  <div className="h-full border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center text-slate-300 gap-2">
-                    <span className="text-3xl">💬</span>
-                    <span className="font-black text-[10px] uppercase tracking-widest">Select a specialist to chat</span>
+                {selectedDoctor ? (
+                  <ChatBox patientId={patient?._id || patient?.id} doctor={selectedDoctor} mainSocket={socket} />
+                ) : (
+                  <div className="h-full border-4 border-dashed border-slate-50 rounded-[2.5rem] flex flex-col items-center justify-center text-slate-200 space-y-4">
+                    <MessageSquare size={50} />
+                    <p className="font-bold text-xs uppercase tracking-widest">Select a specialist to communicate</p>
                   </div>
-                }
+                )}
               </div>
             </div>
           )}
