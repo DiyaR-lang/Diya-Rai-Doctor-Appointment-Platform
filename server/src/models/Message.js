@@ -1,11 +1,16 @@
 import mongoose from "mongoose";
 
-const messageSchema = new mongoose.Schema({
-  senderId: { type: String, required: true },
-  receiverId: { type: String, required: true },
+const MessageSchema = new mongoose.Schema({
+  senderId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  receiverId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   message: { type: String, required: true },
+  // 🔔 NEW: Distinguishes between text, image, and video_call
+  messageType: { 
+    type: String, 
+    enum: ["text", "image", "video_call"], 
+    default: "text" 
+  },
   timestamp: { type: Date, default: Date.now },
 });
 
-const Message = mongoose.model("Message", messageSchema);
-export default Message;
+export default mongoose.model("Message", MessageSchema);

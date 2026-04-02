@@ -7,10 +7,6 @@ import cors from "cors";
 import http from "http";
 import { Server } from "socket.io";
 
-
-
-
-
 // --- NEW IMPORT FOR UPLOAD ---
 import upload from "./middleware/uploads.js"; 
 
@@ -41,18 +37,15 @@ app.use(cors({
 app.use(express.json());
 
 // Serve uploaded images
-
-// This tells Express: "When someone goes to /uploads, look in the root uploads folder"
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+// Adjusted to ensure it finds your uploads folder correctly
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 // 3. The Upload Route
 app.post("/api/chat/upload", upload.single("image"), (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });
-    
-    // This URL must match your server port and the static path above
     const imageUrl = `http://localhost:5000/uploads/${req.file.filename}`;
     res.json({ url: imageUrl });
   } catch (error) {
@@ -80,57 +73,70 @@ app.use("/api/messages", messageRoutes);
 export const io = new Server(server, { 
   cors: { 
     origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
-    methods: ["GET", "POST"]
-  } 
+    methods: ["GET", "POST"],
+    credentials: true
+  },
+  allowEIO3: true,
+  pingTimeout: 60000,
+  transports: ["websocket", "polling"]
 });
 
 io.on("connection", (socket) => {
-  console.log("New Connection:", socket.id);
+  console.log(`⚡ New Connection: ${socket.id}`);
 
+  // 1. Join Private User Room (For Notifications)
   socket.on("join_user", (userId) => {
     if (userId) {
       socket.join(userId);
-      console.log(`User ${userId} joined private notification room`);
+      console.log(`👤 User joined private room: ${userId}`);
     }
   });
 
-  socket.on("join_room", ({ senderId, receiverId }) => {
-    if (!senderId || !receiverId) return;
-    const room = [senderId, receiverId].sort().join("_");
-
-    socket.rooms.forEach((r) => {
-      if (r.includes("_") && r !== room) {
-        socket.leave(r);
-      }
-    });
-
-    socket.join(room);
-    console.log(`Socket ${socket.id} is now ONLY in room: ${room}`);
+  // 2. Join Chat Room (For Messaging)
+  socket.on("join_room", (data) => {
+    const { senderId, receiverId } = data;
+    if (senderId && receiverId) {
+      const room = [senderId, receiverId].sort().join("_");
+      socket.join(room);
+      console.log(`🤝 Socket ${socket.id} joined Chat Room: ${room}`);
+    }
   });
 
+  // 3. Send/Receive Message Logic
   socket.on("send_message", async (data) => {
-    const { senderId, receiverId, message } = data;
+    const { senderId, receiverId, message, messageType } = data;
     if (!senderId || !receiverId || !message) return;
 
     try {
-      const newMessage = new Message({ senderId, receiverId, message });
+      const newMessage = new Message({ 
+        senderId, 
+        receiverId, 
+        message, 
+        messageType: messageType || "text" 
+      });
+      
       await newMessage.save();
-
       const room = [senderId, receiverId].sort().join("_");
 
+      // Send to the chat room
       io.to(room).emit("receive_message", newMessage);
 
+      // Notify the receiver's private room
       io.to(receiverId).emit("new_notification", {
         from: senderId,
-        text: "New Message",
+        text: messageType === "video_call" ? "Incoming Video Call" : "New Message",
         payload: newMessage
       });
+
+      console.log(`✉️ Message sent in room ${room} [Type: ${messageType || 'text'}]`);
     } catch (err) {
-      console.error("Socket Error:", err);
+      console.error("Socket Message Error:", err);
     }
   });
 
-  socket.on("disconnect", () => console.log("Disconnected:", socket.id));
+  socket.on("disconnect", (reason) => {
+    console.log(`❌ Disconnected: ${socket.id} | Reason: ${reason}`);
+  });
 });
 
 // -------------------------
