@@ -4,7 +4,7 @@ import { io } from "socket.io-client";
 import { 
   User, Calendar, Bell, MessageSquare, LogOut, 
   Video, Image as ImageIcon, Send, Clock, CheckCircle2, 
-  Activity, Droplets, Scale, ShieldCheck, X
+  Activity, Droplets, Scale, ShieldCheck, X, Trash2
 } from "lucide-react";
 
 export default function PatientDashboard() {
@@ -16,14 +16,13 @@ export default function PatientDashboard() {
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   const token = localStorage.getItem("token");
 
-  // --------------------------
-  // ORIGINAL LOGIC (UNTOUCHED)
-  // --------------------------
+  // ✅ NOTIFICATION & SOCKET LOGIC
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
     if (!user || !token) return;
     setPatient(user);
 
+    // 1. Initialize Socket Connection
     const newSocket = io("http://localhost:5000", { 
       transports: ["websocket", "polling"],
       withCredentials: true,
@@ -31,10 +30,12 @@ export default function PatientDashboard() {
     });
     setSocket(newSocket);
 
+    // 2. Join User Room
     newSocket.on("connect", () => {
       newSocket.emit("join_user", user._id || user.id);
     });
 
+    // 3. Real-time Notification Listener
     newSocket.on("new_notification", (notif) => {
       setNotifications((prev) => [notif, ...prev]);
     });
@@ -46,28 +47,55 @@ export default function PatientDashboard() {
 
   const fetchData = async () => {
     try {
-      const apptRes = await axios.get("http://localhost:5000/api/appointments/my", { headers: { Authorization: `Bearer ${token}` } });
+      const apptRes = await axios.get("http://localhost:5000/api/appointments/my", { 
+        headers: { Authorization: `Bearer ${token}` } 
+      });
       setAppointments(apptRes.data);
-      // Helpful for debugging image paths:
-      console.log("My Appointments Data:", apptRes.data);
       
-      const notifRes = await axios.get("http://localhost:5000/api/notifications/my", { headers: { Authorization: `Bearer ${token}` } });
+      const notifRes = await axios.get("http://localhost:5000/api/notifications/my", { 
+        headers: { Authorization: `Bearer ${token}` } 
+      });
       setNotifications(notifRes.data);
     } catch (err) { console.error(err); }
   };
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  const markAsRead = async (id) => {
+  // ✅ UPDATED: MARK AS READ WITH DEEP LINKING
+  const markAsRead = async (notification) => {
     try {
-      await axios.put(`http://localhost:5000/api/notifications/${id}/read`, {}, { headers: { Authorization: `Bearer ${token}` } });
-      setNotifications((prev) => prev.map((n) => (n._id === id ? { ...n, isRead: true } : n)));
+      await axios.put(`http://localhost:5000/api/notifications/${notification._id}/read`, {}, { 
+        headers: { Authorization: `Bearer ${token}` } 
+      });
+      
+      setNotifications((prev) => 
+        prev.map((n) => (n._id === notification._id ? { ...n, isRead: true } : n))
+      );
+
+      // Auto-navigate based on type
+      if (notification.type === "appointment_confirmed" || notification.type === "appointment_status") {
+        setActiveTab("appointments");
+      } else if (notification.type === "new_message") {
+        setActiveTab("chat");
+      }
+    } catch (err) { console.error(err); }
+  };
+
+  // ✅ NEW: CLEAR ALL READ NOTIFICATIONS
+  const clearReadNotifications = async () => {
+    try {
+      await axios.delete("http://localhost:5000/api/notifications/clear-read", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setNotifications(prev => prev.filter(n => !n.isRead));
     } catch (err) { console.error(err); }
   };
 
   const deleteAppointment = async (id) => {
     try {
-      await axios.delete(`http://localhost:5000/api/appointments/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      await axios.delete(`http://localhost:5000/api/appointments/${id}`, { 
+        headers: { Authorization: `Bearer ${token}` } 
+      });
       setAppointments((prev) => prev.filter((a) => a._id !== id));
     } catch (err) { console.error(err); }
   };
@@ -77,9 +105,7 @@ export default function PatientDashboard() {
     window.location.href = "/login";
   };
 
-  // ---------------------------------------------------------
-  // CHAT BOX (LOGIC RESTORED & UI PERMANENT)
-  // ---------------------------------------------------------
+  // --- CHAT BOX LOGIC (UNCHANGED) ---
   function ChatBox({ patientId, doctor, mainSocket }) {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState("");
@@ -90,20 +116,12 @@ export default function PatientDashboard() {
 
     useEffect(() => {
       if (!patientId || !doctorUserId || !mainSocket) return;
-      
-      const room = [patientId, doctorUserId].sort().join("_");
       mainSocket.emit("join_room", { senderId: patientId, receiverId: doctorUserId });
-
-      const handleReceive = (msg) => {
-        setMessages((prev) => [...prev, msg]);
-      };
-
+      const handleReceive = (msg) => { setMessages((prev) => [...prev, msg]); };
       mainSocket.on("receive_message", handleReceive);
-      
       axios.get(`http://localhost:5000/api/messages/${patientId}/${doctorUserId}`, { 
         headers: { Authorization: `Bearer ${token}` } 
       }).then(res => setMessages(res.data));
-
       return () => mainSocket.off("receive_message", handleReceive);
     }, [patientId, doctorUserId, mainSocket]);
 
@@ -114,15 +132,7 @@ export default function PatientDashboard() {
     const handleSend = (content, type = "text") => {
       const finalMsg = content || input;
       if (!finalMsg.trim()) return;
-
-      const msgObj = {
-        senderId: patientId,
-        receiverId: doctorUserId,
-        message: finalMsg,
-        messageType: type,
-        timestamp: new Date().toISOString()
-      };
-
+      const msgObj = { senderId: patientId, receiverId: doctorUserId, message: finalMsg, messageType: type, timestamp: new Date().toISOString() };
       mainSocket.emit("send_message", msgObj);
       setMessages((prev) => [...prev, msgObj]); 
       setInput("");
@@ -166,13 +176,11 @@ export default function PatientDashboard() {
             <button onClick={() => fileInputRef.current.click()} className="p-2 hover:bg-white/10 rounded-xl transition-all"><ImageIcon size={18}/></button>
           </div>
         </div>
-
         <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#F8FAFC]">
           {messages.map((msg, i) => {
             const isImage = msg.message.match(/\.(jpeg|jpg|gif|png|jfif|webp)$/i);
             const isVideoCall = msg.messageType === "video_call";
             const isMe = msg.senderId === patientId;
-
             return (
               <div key={i} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
                 <div className={`max-w-[75%] p-3 rounded-2xl ${isMe ? "bg-sky-600 text-white rounded-tr-none shadow-md" : "bg-white border text-slate-800 rounded-tl-none shadow-sm"}`}>
@@ -192,7 +200,6 @@ export default function PatientDashboard() {
           })}
           <div ref={scrollRef} />
         </div>
-
         <div className="p-4 border-t bg-white flex gap-2 items-center">
           <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSend()} placeholder="Type a message..." className="flex-1 bg-slate-100 rounded-2xl px-5 py-3 text-sm outline-none border border-transparent focus:border-sky-300 transition-all" />
           <button onClick={() => handleSend()} className="bg-sky-600 text-white p-3 rounded-2xl hover:bg-sky-700 transition-all shadow-lg shadow-sky-100"><Send size={20}/></button>
@@ -205,8 +212,6 @@ export default function PatientDashboard() {
   return (
     <div className="min-h-screen bg-[#F4F7FA] p-4 md:p-6 font-sans text-slate-800">
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* SIDEBAR */}
         <aside className="lg:col-span-3 space-y-4">
           <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-200/50 text-center">
             <img 
@@ -233,7 +238,7 @@ export default function PatientDashboard() {
                 className={`w-full flex items-center justify-between px-5 py-4 my-1 rounded-2xl text-sm font-bold transition-all duration-300 ${activeTab === t.id ? "bg-sky-600 text-white shadow-lg shadow-sky-100" : "text-slate-500 hover:bg-sky-50 hover:text-sky-600"}`}
               >
                 <span className="flex items-center gap-4">{t.icon} {t.label}</span>
-                {t.badge > 0 && <span className="bg-rose-500 text-white text-[10px] px-2 py-0.5 rounded-full">{t.badge}</span>}
+                {t.badge > 0 && <span className="bg-rose-500 text-white text-[10px] px-2 py-0.5 rounded-full animate-pulse">{t.badge}</span>}
               </button>
             ))}
             <button onClick={handleLogout} className="w-full flex items-center gap-4 px-5 py-4 text-sm font-bold text-rose-500 hover:bg-rose-50 rounded-2xl transition-all">
@@ -242,15 +247,10 @@ export default function PatientDashboard() {
           </nav>
         </aside>
 
-        {/* MAIN CONTENT */}
         <main className="lg:col-span-9 bg-white rounded-[2.5rem] p-6 md:p-10 shadow-xl border border-slate-200/50 min-h-[720px]">
-          
           {activeTab === "profile" && (
             <div className="animate-in fade-in duration-500 space-y-8">
-              <header>
-                <h2 className="text-4xl font-black text-slate-900 tracking-tight">Your <span className="text-sky-600">Health Card</span></h2>
-              </header>
-
+              <header><h2 className="text-4xl font-black text-slate-900 tracking-tight">Your <span className="text-sky-600">Health Card</span></h2></header>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 flex flex-col gap-3">
                   <div className="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-rose-500"><Droplets/></div>
@@ -265,18 +265,11 @@ export default function PatientDashboard() {
                   <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Heart Rate</p><p className="font-bold text-xl">72 BPM</p></div>
                 </div>
               </div>
-
               <div className="p-8 bg-gradient-to-br from-slate-900 to-slate-800 rounded-[2.5rem] text-white shadow-2xl">
                 <h4 className="text-sky-400 font-bold text-xs uppercase tracking-[0.2em] mb-6">Patient Identification</h4>
                 <div className="grid md:grid-cols-2 gap-8">
-                  <div>
-                    <p className="text-slate-500 text-[10px] font-bold uppercase">Official Name</p>
-                    <p className="text-xl font-bold tracking-wide mt-1">{patient?.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500 text-[10px] font-bold uppercase">Email Account</p>
-                    <p className="text-xl font-bold tracking-wide mt-1">{patient?.email}</p>
-                  </div>
+                  <div><p className="text-slate-500 text-[10px] font-bold uppercase">Official Name</p><p className="text-xl font-bold tracking-wide mt-1">{patient?.name}</p></div>
+                  <div><p className="text-slate-500 text-[10px] font-bold uppercase">Email Account</p><p className="text-xl font-bold tracking-wide mt-1">{patient?.email}</p></div>
                 </div>
               </div>
             </div>
@@ -290,11 +283,9 @@ export default function PatientDashboard() {
                   <div key={a._id} className="p-6 bg-white border border-slate-100 rounded-[2rem] flex items-center justify-between hover:shadow-xl hover:shadow-sky-50 transition-all duration-300">
                     <div className="flex items-center gap-5">
                       <div className="w-16 h-16 bg-sky-50 rounded-2xl overflow-hidden shadow-inner ring-2 ring-slate-50">
-                        {/* THE DOCTOR IMAGE LOGIC IS HERE */}
                         <img 
                           src={a.doctorId?.userId?.image ? `http://localhost:5000${a.doctorId.userId.image}` : "https://cdn-icons-png.flaticon.com/512/387/387561.png"} 
-                          className="w-full h-full object-cover" 
-                          alt="Doctor" 
+                          className="w-full h-full object-cover" alt="Doctor" 
                           onError={(e) => { e.target.src = "https://cdn-icons-png.flaticon.com/512/387/387561.png"; }}
                         />
                       </div>
@@ -320,19 +311,30 @@ export default function PatientDashboard() {
 
           {activeTab === "notifications" && (
             <div className="space-y-6 animate-in fade-in duration-500">
-              <h2 className="text-3xl font-black text-slate-900">Alert <span className="text-sky-600">Center</span></h2>
+              <div className="flex justify-between items-center">
+                <h2 className="text-3xl font-black text-slate-900">Alert <span className="text-sky-600">Center</span></h2>
+                {notifications.some(n => n.isRead) && (
+                  <button onClick={clearReadNotifications} className="flex items-center gap-2 text-[10px] font-black text-rose-500 bg-rose-50 px-4 py-2 rounded-xl border border-rose-100 hover:bg-rose-100 transition-all">
+                    <Trash2 size={14}/> CLEAR READ
+                  </button>
+                )}
+              </div>
               <div className="space-y-3">
-                {notifications.map((n) => (
-                  <div key={n._id} onClick={() => !n.isRead && markAsRead(n._id)} className={`p-6 rounded-[2rem] border transition-all cursor-pointer relative overflow-hidden ${n.isRead ? "bg-slate-50/50 border-transparent opacity-60" : "bg-white border-sky-100 shadow-lg"}`}>
-                    {!n.isRead && <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-sky-500"></div>}
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="text-sm font-bold text-slate-900">{n.title}</p>
-                        <p className="text-xs text-slate-500 mt-2 leading-relaxed font-medium">{n.message}</p>
+                {notifications.length === 0 ? <p className="text-center py-20 text-slate-300 font-bold uppercase tracking-widest">No alerts yet</p> : 
+                  notifications.map((n) => (
+                    <div key={n._id} onClick={() => markAsRead(n)} className={`p-6 rounded-[2rem] border transition-all cursor-pointer relative overflow-hidden ${n.isRead ? "bg-slate-50/50 border-transparent opacity-60" : "bg-white border-sky-100 shadow-lg hover:border-sky-300"}`}>
+                      {!n.isRead && <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-sky-500 animate-pulse"></div>}
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                            {n.title} {!n.isRead && <span className="bg-sky-500 text-white text-[8px] px-1.5 py-0.5 rounded">NEW</span>}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-2 leading-relaxed font-medium">{n.message}</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                }
               </div>
             </div>
           )}
@@ -345,26 +347,19 @@ export default function PatientDashboard() {
                   {appointments.filter(a => a.status === 'confirmed').map(a => (
                     <div key={a._id} onClick={() => setSelectedDoctor(a.doctorId)} className={`p-4 rounded-2xl cursor-pointer transition-all flex items-center gap-4 ${selectedDoctor?._id === a.doctorId._id ? "bg-sky-600 text-white shadow-xl" : "bg-white hover:bg-sky-50 text-slate-600 border border-slate-100"}`}>
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold overflow-hidden ${selectedDoctor?._id === a.doctorId._id ? "bg-white/20" : "bg-sky-100 text-sky-600"}`}>
-                        {a.doctorId?.userId?.image ? (
-                          <img src={`http://localhost:5000${a.doctorId.userId.image}`} className="w-full h-full object-cover" alt="" />
-                        ) : a.doctorId?.userId?.name?.charAt(0)}
+                        {a.doctorId?.userId?.image ? <img src={`http://localhost:5000${a.doctorId.userId.image}`} className="w-full h-full object-cover" alt="" /> : a.doctorId?.userId?.name?.charAt(0)}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold truncate">Dr. {a.doctorId?.userId?.name}</p>
-                      </div>
+                      <div className="flex-1 min-w-0"><p className="text-sm font-bold truncate">Dr. {a.doctorId?.userId?.name}</p></div>
                     </div>
                   ))}
                 </div>
               </div>
               <div className="flex-1">
-                {selectedDoctor ? (
-                  <ChatBox patientId={patient?._id || patient?.id} doctor={selectedDoctor} mainSocket={socket} />
-                ) : (
+                {selectedDoctor ? <ChatBox patientId={patient?._id || patient?.id} doctor={selectedDoctor} mainSocket={socket} /> : 
                   <div className="h-full border-4 border-dashed border-slate-50 rounded-[2.5rem] flex flex-col items-center justify-center text-slate-200 space-y-4">
-                    <MessageSquare size={50} />
-                    <p className="font-bold text-xs uppercase tracking-widest">Select a specialist to communicate</p>
+                    <MessageSquare size={50} /><p className="font-bold text-xs uppercase tracking-widest">Select a specialist to communicate</p>
                   </div>
-                )}
+                }
               </div>
             </div>
           )}

@@ -39,12 +39,7 @@ router.post(
       if (existingUser)
         return res.status(400).json({ message: "Email already exists." });
 
-      // If doctor, check required fields
-      // if (role === "doctor") {
-      //   if (!specialty || !experience || !fee || !phone || !address) {
-      //     return res.status(400).json({ message: "Doctor details required." });
-      //   }
-      // }
+      
       if (role === "doctor") {
   if (!specialty || !experience || !fee || !phone || !address || !nmcId) {
     return res.status(400).json({

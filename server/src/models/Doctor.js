@@ -24,7 +24,7 @@ const doctorSchema = new mongoose.Schema({
 
   description: { 
     type: String 
-  }, // bio / description
+  }, 
 
   phone: { 
     type: String 
@@ -36,21 +36,39 @@ const doctorSchema = new mongoose.Schema({
 
   image: { 
     type: String 
-  }, // optional
+  }, 
 
-  // ✅ NEW FIELD — NMC License Number
   nmcId: {
     type: String,
     required: true,
     unique: true
   },
 
-  // ✅ Optional verification status
   isVerified: {
     type: Boolean,
     default: true
-  }
+  },
+
+  // ✅ ADDED: Availability Array to support your Dashboard logic
+  availability: [
+    {
+      date: { type: String, required: true }, // Store as "YYYY/MM/DD"
+      nepaliDate: { type: String },
+      range: { type: String, default: "06:00 - 19:00" },
+      slots: [
+        {
+          time: { type: String, required: true },
+          isBooked: { type: Boolean, default: false },
+          bookedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null }
+        }
+      ]
+    }
+  ]
 
 }, { timestamps: true });
 
-export default mongoose.model("Doctor", doctorSchema);
+// Define the model
+const Doctor = mongoose.model("Doctor", doctorSchema);
+
+// ✅ CRITICAL: Ensure this is exactly 'export default Doctor'
+export default Doctor;

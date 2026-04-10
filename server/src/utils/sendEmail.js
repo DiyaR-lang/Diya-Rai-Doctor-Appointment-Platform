@@ -1,3 +1,4 @@
+// / Email logic remains the same as it doesn't depend on Socket.io
 import nodemailer from "nodemailer";
 
 export const sendEmail = async (to, subject, html) => {

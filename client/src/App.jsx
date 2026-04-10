@@ -1,5 +1,5 @@
 import React from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 
 // Layout & Global Components
 import Layout from "./components/Layout";
@@ -24,10 +24,19 @@ export default function App() {
     <Routes>
       {/* Routes that include the Navbar/Footer from Layout */}
       <Route path="/" element={<Layout />}>
-        <Route index element={<Home />} />
+        
+        {/* 1. Redirect root to /home so the URL always shows 'home' */}
+        <Route index element={<Navigate to="/home" replace />} />
+        
+        {/* 2. Explicit path for the Home page */}
+        <Route path="home" element={<Home />} />
+
         <Route path="login" element={<Login />} />
         <Route path="register" element={<Register />} />
+        
+        {/* 3. Standardized path (all lowercase) for All Doctors */}
         <Route path="all-doctors" element={<AllDoctors />} />
+        
         <Route path="notifications" element={<Notifications />} />
         
         {/* Protected Dashboard Routes */}
@@ -36,13 +45,10 @@ export default function App() {
         <Route path="patient/dashboard" element={<PatientDashboard />} />
       </Route>
 
-      {/* Full-Screen Video Call Route 
-          Placed outside the <Layout> so the Header/Footer don't 
-          distract or block the camera view.
-      */}
+      {/* Full-Screen Video Call Route */}
       <Route path="/video-call/:roomId" element={<VideoCall />} />
 
-      {/* Optional: Catch-all for 404 errors */}
+      {/* Catch-all for 404 errors */}
       <Route path="*" element={
         <div className="flex items-center justify-center h-screen font-bold text-slate-400">
           404 | Page Not Found

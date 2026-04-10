@@ -1,7 +1,7 @@
 import express from "express";
 import Notification from "../models/Notification.js";
 import { protect } from "../middleware/authMiddleware.js";
-import { io } from "../server.js"; // Import your Socket server instance
+
 
 const router = express.Router();
 
@@ -72,6 +72,21 @@ router.get("/unread/count", protect, async (req, res) => {
       isRead: false,
     });
     res.json({ count });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// server/src/routes/notifications.js
+
+// Delete all READ notifications for the logged-in user
+router.delete("/clear-read", protect, async (req, res) => {
+  try {
+    await Notification.deleteMany({ 
+      user: req.user._id, 
+      isRead: true 
+    });
+    res.json({ message: "Read notifications cleared" });
   } catch (err) {
     res.status(500).json({ message: "Server error" });
   }

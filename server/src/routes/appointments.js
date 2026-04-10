@@ -1,7 +1,7 @@
 import express from "express";
 import Appointment from "../models/Appointment.js";
 import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
-import { io } from "../server.js";
+
 import { sendEmail } from "../utils/sendEmail.js";
 import { sendNotification } from "../utils/notify.js"; 
 import Doctor from "../models/Doctor.js";
@@ -11,49 +11,44 @@ const router = express.Router();
 // ============================
 // CREATE APPOINTMENT (Patient)
 // ============================
+// server/src/routes/appointments.js
+
 router.post("/", protect, authorizeRoles("patient"), async (req, res) => {
   try {
     const { doctorId, date, time, note, fee } = req.body;
 
-    if (!doctorId || !date || !time)
-      return res.status(400).json({ message: "All fields required" });
-
-    // Validate doctor exists and FETCH the linked User ID
-    const doctor = await Doctor.findById(doctorId);
+    // 1. Fetch the doctor profile and explicitly populate the userId
+    const doctor = await Doctor.findById(doctorId).populate("userId");
     if (!doctor) return res.status(404).json({ message: "Doctor not found" });
 
-    let appointmentFee = fee ? Number(fee) : doctor.fee;
-    if (!appointmentFee || appointmentFee <= 0)
-      return res.status(400).json({ message: "Invalid appointment fee" });
+    
+    const targetUserId = doctor.userId._id || doctor.userId;
 
+    if (!targetUserId) {
+      console.error("Critical: Doctor profile exists but has no linked userId");
+      return res.status(400).json({ message: "Doctor account configuration error" });
+    }
+
+    // 3. Create the appointment
     const appointment = await Appointment.create({
       doctorId,
       patientId: req.user._id,
       date,
       time,
       note,
-      fee: appointmentFee,
+      fee: fee || doctor.fee,
       status: "pending",
       paymentStatus: "pending",
     });
 
-    // 🔔 Notify Doctor 
-    // FIXED: We send to doctor.userId because that is the ID the doctor 
-    // uses to "join_user" in their dashboard.
-    const targetId = doctor.userId ? doctor.userId.toString() : doctorId;
+    // 4. Send Notification
+    const io = req.app.get("socketio") || req.app.get("io");
 
-    await sendNotification({
-      userId: targetId,
+    await sendNotification(io, {
+      userId: targetUserId.toString(), // Ensure this is a string!
       title: "New Appointment Booked",
-      message: `A new patient booked an appointment for ${date} at ${time}`,
+      message: `New booking from ${req.user.name} for ${date}`,
       type: "appointment_booked",
-    });
-
-    // 🔔 Realtime socket (Optional but matches your confirm/cancel logic)
-    io.to(targetId).emit("new_notification", {
-      title: "New Appointment Booked",
-      message: `New booking from ${req.user.name}`,
-      type: "appointment_booked"
     });
 
     res.status(201).json(appointment);
@@ -62,7 +57,6 @@ router.post("/", protect, authorizeRoles("patient"), async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
 // ============================
 // GET PATIENT APPOINTMENTS
 // ============================
@@ -108,10 +102,9 @@ router.delete("/:id", protect, authorizeRoles("patient"), async (req, res) => {
 // ============================
 router.get("/doctor/my", protect, authorizeRoles("doctor"), async (req, res) => {
   try {
-    // Find the doctor profile associated with this user
     const doctorProfile = await Doctor.findOne({ userId: req.user._id });
-    
-    // Fetch only appointments for this specific doctor
+    if (!doctorProfile) return res.status(404).json({ message: "Doctor profile not found" });
+
     const appointments = await Appointment.find({ doctorId: doctorProfile._id })
       .populate("patientId", "name email image")
       .sort({ createdAt: -1 });
@@ -128,57 +121,49 @@ router.get("/doctor/my", protect, authorizeRoles("doctor"), async (req, res) => 
 router.put("/:id/confirm", protect, authorizeRoles("doctor"), async (req, res) => {
   try {
     const appointment = await Appointment.findById(req.params.id)
-      .populate("patientId", "name email")
-      .populate("doctorId", "name");
+      .populate("patientId", "name email"); // Ensure patientId is populated
 
-    if (!appointment)
-      return res.status(404).json({ message: "Appointment not found" });
+    if (!appointment) return res.status(404).json({ message: "Appointment not found" });
 
     appointment.status = "confirmed";
     await appointment.save();
 
-    io.to(appointment.patientId._id.toString()).emit("appointmentConfirmed", appointment);
+    const io = req.app.get("socketio");
 
-    await sendNotification({
-      userId: appointment.patientId._id,
-      title: "Appointment Confirmed",
-      message: `Your appointment on ${appointment.date} at ${appointment.time} has been confirmed`,
-      type: "appointment_confirmed",
-    });
+   
+    const targetId = appointment.patientId._id || appointment.patientId;
 
-    await sendEmail(
-      appointment.patientId.email,
-      "Appointment Confirmed",
-      `<h3>Hello ${appointment.patientId.name}</h3><p>Your appointment has been confirmed.</p>`
-    );
+    if (targetId) {
+      await sendNotification(io, {
+        userId: targetId.toString(), 
+        title: "Appointment Confirmed",
+        message: `Your appointment on ${appointment.date} has been confirmed`,
+        type: "appointment_confirmed",
+      });
+    } else {
+      console.error("NOTIFICATION ERROR: Could not find patient ID");
+    }
 
     res.json({ message: "Appointment confirmed", appointment });
   } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
 });
-
-// ============================
-// CANCEL APPOINTMENT (Doctor)
-// ============================
 router.put("/:id/cancel", protect, authorizeRoles("doctor"), async (req, res) => {
   try {
-    const appointment = await Appointment.findById(req.params.id)
-      .populate("patientId", "name email")
-      .populate("doctorId", "name");
-
-    if (!appointment)
-      return res.status(404).json({ message: "Appointment not found" });
+    const appointment = await Appointment.findById(req.params.id).populate("patientId");
+    if (!appointment) return res.status(404).json({ message: "Appointment not found" });
 
     appointment.status = "cancelled";
     await appointment.save();
 
-    io.to(appointment.patientId._id.toString()).emit("appointmentCancelled", appointment);
+    const io = req.app.get("socketio");
+    const targetId = appointment.patientId._id || appointment.patientId;
 
-    await sendNotification({
-      userId: appointment.patientId._id,
+    await sendNotification(io, {
+      userId: targetId.toString(),
       title: "Appointment Cancelled",
-      message: `Your appointment on ${appointment.date} at ${appointment.time} has been cancelled`,
+      message: `Your appointment on ${appointment.date} has been cancelled`,
       type: "appointment_cancelled",
     });
 
@@ -187,5 +172,4 @@ router.put("/:id/cancel", protect, authorizeRoles("doctor"), async (req, res) =>
     res.status(500).json({ message: "Server error" });
   }
 });
-
 export default router;
