@@ -1,8 +1,5 @@
 import Doctor from "../models/Doctor.js";
 
-// @desc    Add or Update Doctor Availability
-// @route   POST /api/doctors/availability
-// @access  Private (Doctor Only)
 export const updateAvailability = async (req, res) => {
   try {
     const { date, nepaliDate, range, slots } = req.body;
@@ -40,9 +37,6 @@ export const updateAvailability = async (req, res) => {
   }
 };
 
-// @desc    Get all doctors with filtered availability
-// @route   GET /api/doctors
-// @access  Public
 export const getAllDoctors = async (req, res) => {
   try {
     const doctors = await Doctor.find().populate("userId", "name email");

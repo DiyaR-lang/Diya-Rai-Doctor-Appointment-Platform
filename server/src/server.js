@@ -39,7 +39,7 @@ const io = new Server(server, {
   transports: ["websocket", "polling"]
 });
 
-// ✅ CRITICAL: Attach 'io' to 'app' so controllers can use it via req.app.get("socketio")
+// ✅ Make socket available everywhere (IMPORTANT for payment controller)
 app.set("socketio", io);
 
 // 2. Middleware
@@ -47,19 +47,29 @@ app.use(cors({
   origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
   credentials: true
 }));
+
 app.use(express.json());
+
+// ✅ (NEW) Optional: log incoming requests (helps debug payment issues)
+app.use((req, res, next) => {
+  console.log(`📡 ${req.method} ${req.url}`);
+  next();
+});
 
 // 3. Static Files & Path Config
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
-// 4. File Upload Route (Keeping your original logic)
+// 4. File Upload Route (unchanged)
 app.post("/api/chat/upload", upload.single("image"), (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+
     const imageUrl = `http://localhost:5000/uploads/${req.file.filename}`;
     res.json({ url: imageUrl });
+
   } catch (error) {
     res.status(500).json({ message: "Upload failed" });
   }
@@ -67,20 +77,23 @@ app.post("/api/chat/upload", upload.single("image"), (req, res) => {
 
 // 5. API Routes
 app.get("/", (req, res) => res.json({ message: "Server is running" }));
+
 app.use("/api/auth", authRoutes);
 app.use("/api/appointments", appointmentRoutes);
 app.use("/api/doctors", doctorRoutes);
 app.use("/api/notifications", notificationRoutes);
+
+// ✅ Payment route (already correct, just kept here)
 app.use("/api/payment", paymentRoutes);
+
 app.use("/api/messages", messageRoutes);
 
 // -------------------------
-// Socket.IO Logic (Real-Time Messaging & UI Updates)
+// Socket.IO Logic (UNCHANGED)
 // -------------------------
 io.on("connection", (socket) => {
   console.log(`⚡ New Connection: ${socket.id}`);
 
-  // Join Private Room
   socket.on("join_user", (userId) => {
     if (userId) {
       socket.join(userId);
@@ -88,9 +101,9 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Join Chat Room
   socket.on("join_room", (data) => {
     const { senderId, receiverId } = data;
+
     if (senderId && receiverId) {
       const room = [senderId, receiverId].sort().join("_");
       socket.join(room);
@@ -98,9 +111,9 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Message Handling
   socket.on("send_message", async (data) => {
     const { senderId, receiverId, message, messageType } = data;
+
     if (!senderId || !receiverId || !message) return;
 
     try {
@@ -110,16 +123,19 @@ io.on("connection", (socket) => {
         message, 
         messageType: messageType || "text" 
       });
-      
+
       await newMessage.save();
+
       const room = [senderId, receiverId].sort().join("_");
 
       io.to(room).emit("receive_message", newMessage);
+
       io.to(receiverId).emit("new_notification", {
         from: senderId,
         text: messageType === "video_call" ? "Incoming Video Call" : "New Message",
         payload: newMessage
       });
+
     } catch (err) {
       console.error("Socket Message Error:", err);
     }
@@ -130,5 +146,15 @@ io.on("connection", (socket) => {
   });
 });
 
+// ❗ (NEW) Global Error Handler (helps debug Khalti issues)
+app.use((err, req, res, next) => {
+  console.error("🔥 Server Error:", err.stack);
+  res.status(500).json({ message: "Internal Server Error" });
+});
+
+// Start Server
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
+
+server.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+});

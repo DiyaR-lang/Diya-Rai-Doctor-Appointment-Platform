@@ -1,13 +1,14 @@
 import { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, Link } from "react-router-dom";
 
 export default function Navbar() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Check if user is logged in
-  const user = JSON.parse(localStorage.getItem("user"));
+  // ✅ ORIGINAL LOGIC WITH SAFETY FIX: Check for "undefined" string before parsing
+  const rawUser = localStorage.getItem("user");
+  const user = (rawUser && rawUser !== "undefined") ? JSON.parse(rawUser) : null;
   const token = localStorage.getItem("token");
 
   const toggleDropdown = () => setDropdownOpen(!dropdownOpen);
@@ -24,10 +25,9 @@ export default function Navbar() {
     navigate("/login");
   };
 
-  // FIXED: Standardized paths to match App.jsx (all lowercase)
   const links = [
     { name: "Home", path: "/" },
-    { name: "All Doctors", path: "/all-doctors" }, // Matches <Route path="all-doctors" />
+    { name: "All Doctors", path: "/all-doctors" }, 
     { name: "About", path: "/about" },
     { name: "Contact", path: "/contact" },
   ];
@@ -39,7 +39,7 @@ export default function Navbar() {
       <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/")}>
         <div className="w-12 h-12 md:w-14 md:h-14">
           <img
-            src="https://img.favpng.com/11/11/11/staff-of-hermes-caduceus-as-a-symbol-of-medicine-caduceus-as-a-symbol-of-medicine-clip-art-png-favpng-tjtjy62QwG0ipBZgKUrZfNTFi.jpg"
+            src="https://img.favpng.com/11/11/11/staff-of-hermes-caduseus-as-a-symbol-of-medicine-caduceus-as-a-symbol-of-medicine-clip-art-png-favpng-tjtjy62QwG0ipBZgKUrZfNTFi.jpg"
             alt="Doctor Logo"
             className="w-full h-full object-contain"
           />
@@ -63,7 +63,6 @@ export default function Navbar() {
           </li>
         ))}
 
-        {/* Admin Panel - Only show if logged in as admin */}
         {user?.role === "admin" && (
           <li
             className={`border border-gray-300 rounded-full px-4 py-1 text-[10px] cursor-pointer hover:bg-gray-50 transition-all ${
@@ -76,18 +75,18 @@ export default function Navbar() {
         )}
       </ul>
 
-      {/* Right Dropdown: Profile / Auth */}
+      {/* Right Dropdown */}
       <div className="relative">
         <button
           className="bg-blue-600 text-white rounded-full px-5 py-2 text-xs hover:bg-blue-700 transition-all font-medium"
           onClick={toggleDropdown}
         >
-          {token ? `Account (${user?.name?.split(' ')[0]})` : "Create Account"}
+          {token && user ? `Account (${user.name?.split(' ')[0] || 'User'})` : "Create Account"}
         </button>
 
         {dropdownOpen && (
           <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden">
-            {!token ? (
+            {!token || !user ? (
               <>
                 <p className="px-4 py-3 text-sm hover:bg-blue-50 cursor-pointer border-b" onClick={() => handleNavigate("/login")}>
                   Login

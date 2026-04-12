@@ -1,6 +1,5 @@
 import express from "express";
-// FIX: Ensure this is a DEFAULT import (no curly braces) 
-// and check that models/Doctor.js uses 'export default Doctor'
+
 import Doctor from "../models/Doctor.js"; 
 import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
 
@@ -11,22 +10,17 @@ const router = express.Router();
 // ==========================================
 router.get("/profile/me", protect, async (req, res) => {
   try {
-    // Safety Check: If Doctor.findOne is missing, the import is wrong
-    if (!Doctor || typeof Doctor.findOne !== 'function') {
-      throw new Error("Doctor model not loaded correctly. Check export in Doctor.js");
-    }
-
-    const doctor = await Doctor.findOne({ userId: req.user.id });
+    // Populate userId to get Name and Image from the User Model
+    const doctor = await Doctor.findOne({ userId: req.user.id }).populate("userId", "name image email");
+    
     if (!doctor) {
       return res.status(404).json({ message: "Doctor profile not found" });
     }
     res.json(doctor); 
   } catch (err) {
-    console.error("Profile Fetch Error:", err);
-    res.status(500).json({ message: err.message || "Server error" });
+    res.status(500).json({ message: "Server error" });
   }
 });
-
 // ==========================================
 // 2. UPDATE AVAILABILITY (FOR BOOKING)
 // ==========================================

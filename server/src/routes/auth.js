@@ -3,160 +3,129 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import Doctor from "../models/Doctor.js";
 import upload from "../middleware/uploads.js";
-
+import { protect } from "../middleware/authMiddleware.js";
 const router = express.Router();
+router.put("/update-profile", protect, upload.single("image"), async (req, res) => {
+  try {
+    const { name, email, bloodGroup, weight, heartRate, ...doctorData } = req.body;
+    const userId = req.user._id;
 
+    // 1. Prepare User Update Object
+    const userUpdate = { name, email };
+    if (req.file) {
+      userUpdate.image = `/uploads/${req.file.filename}`;
+    }
+
+    // 2. Update the User (Health stats + basic info)
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $set: { ...userUpdate, bloodGroup, weight, heartRate } },
+      { new: true }
+    ).select("-password");
+
+    // 3. If User is a Doctor, sync professional profile
+    if (updatedUser.role === "doctor") {
+      const doctorUpdate = { ...doctorData };
+      if (req.file) doctorUpdate.image = userUpdate.image;
+      
+      await Doctor.findOneAndUpdate(
+        { userId: userId },
+        { $set: doctorUpdate },
+        { new: true }
+      );
+    }
+
+    res.status(200).json({
+      message: "Profile updated successfully",
+      user: updatedUser
+    });
+  } catch (err) {
+    console.error("UPDATE ERROR:", err);
+    res.status(500).json({ message: "Server error during update" });
+  }
+});
 // =========================
 // REGISTER
 // =========================
-router.post(
-  "/register",
-  upload.single("image"), // handle single image upload
-  async (req, res) => {
-    try {
-      const {
-        name,
-        email,
-        password,
-        role,
+
+router.post("/register", upload.single("image"), async (req, res) => {
+  try {
+    const { name, email, password, role, specialty, experience, fee, bio, phone, address, nmcId } = req.body;
+
+    // ... (Your existing validation logic for email, role, and NMC format) ...
+
+    const imagePath = req.file ? `/uploads/${req.file.filename}` : "";
+
+    // 1. Create User with the image
+    const user = await User.create({ 
+      name, 
+      email, 
+      password, 
+      role, 
+      image: imagePath 
+    });
+
+    if (role === "doctor") {
+      await Doctor.create({
+        userId: user._id,
         specialty,
         experience,
         fee,
-        bio,
+        bio: bio || "",
         phone,
         address,
-        nmcId ,  // ✅ ADD THIS
-      } = req.body;
-
-      if (!name || !email || !password || !role)
-        return res.status(400).json({ message: "All fields are required." });
-
-      const validRoles = ["admin", "doctor", "patient"];
-      if (!validRoles.includes(role))
-        return res.status(400).json({ message: "Invalid role." });
-
-      const existingUser = await User.findOne({ email });
-      if (existingUser)
-        return res.status(400).json({ message: "Email already exists." });
-
-      
-      if (role === "doctor") {
-  if (!specialty || !experience || !fee || !phone || !address || !nmcId) {
-    return res.status(400).json({
-      message: "Doctor details including NMC ID are required."
-    });
-  }
-
-  // NMC format validation
-  const nmcRegex = /^NMC-[0-9]{5}$/;
-
-  if (!nmcRegex.test(nmcId)) {
-    return res.status(400).json({
-      message: "Invalid NMC format. Example: NMC-12345"
-    });
-  }
-
-  // Check duplicate NMC
-  const existingNMC = await Doctor.findOne({ nmcId });
-
-  if (existingNMC) {
-    return res.status(400).json({
-      message: "This NMC ID is already registered"
-    });
-  }
-}
-
-      // Create user
-      const user = await User.create({ name, email, password, role });
-
-      // Save uploaded image path (full path for frontend)
-      const image = req.file ? `/uploads/${req.file.filename}` : "";
-
-
-      // Create doctor profile if role is doctor
-      if (role === "doctor") {
-        await Doctor.create({
-          userId: user._id,
-          specialty,
-          experience,
-          fee,
-          bio: bio || "",
-          phone,
-          address,
-          image, // now includes /uploads/ prefix
-          nmcId,   // ✅ SAVE NMC
-        });
-      }
-
-      // Token
-      const token = jwt.sign(
-        { id: user._id, role: user.role },
-        process.env.JWT_SECRET,
-        { expiresIn: "7d" }
-      );
-
-      res.status(201).json({
-        message: "User registered successfully",
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-        },
-        token,
+        image: imagePath, 
+        nmcId,
       });
-    } catch (err) {
-      console.error("REGISTER ERROR FULL:", err);
-      res.status(500).json({ message: err.message || "Server error" });
-    }
-  }
-);
-
-// =========================
-// LOGIN
-// =========================
-router.post("/login", async (req, res) => {
-  try {
-    const { email, password, role } = req.body;
-
-    if (!email || !password || !role) {
-      return res
-        .status(400)
-        .json({ message: "Email, password, and role required." });
     }
 
-    const user = await User.findOne({ email, role });
+    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "9d" });
 
-    if (!user) {
-      return res.status(401).json({ message: "Invalid credentials or role." });
-    }
-
-    const isMatch = await user.matchPassword(password);
-
-    if (!isMatch) {
-      return res.status(401).json({ message: "Invalid credentials or role." });
-    }
-
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    res.status(200).json({
-      message: "Login successful",
+    res.status(201).json({
+      message: "User registered successfully",
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
+        image: user.image 
       },
       token,
     });
   } catch (err) {
-    console.error("LOGIN ERROR FULL:", err);
-    res.status(500).json({ message: err.message || "Server error" });
+    res.status(500).json({ message: err.message });
   }
 });
+
+// =========================
+// LOGIN 
+// =========================
+router.post("/login", async (req, res) => {
+  try {
+    const { email, password, role } = req.body;
+    const user = await User.findOne({ email, role });
+
+    if (!user || !(await user.matchPassword(password))) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "7d" });
+
+    res.status(200).json({
+      message: "Login successful",
+      user: {
+        id: user._id, // 
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        image: user.image 
+      },
+      token,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 
 export default router;

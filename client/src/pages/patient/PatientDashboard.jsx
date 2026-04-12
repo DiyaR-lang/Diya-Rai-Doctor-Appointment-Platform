@@ -4,7 +4,7 @@ import { io } from "socket.io-client";
 import { 
   User, Calendar, Bell, MessageSquare, LogOut, 
   Video, Image as ImageIcon, Send, Clock, CheckCircle2, 
-  Activity, Droplets, Scale, ShieldCheck, X, Trash2
+  Activity, Droplets, Scale, ShieldCheck, X, Trash2, Camera, Edit3, Save
 } from "lucide-react";
 
 export default function PatientDashboard() {
@@ -14,15 +14,32 @@ export default function PatientDashboard() {
   const [patient, setPatient] = useState(null);
   const [socket, setSocket] = useState(null);
   const [selectedDoctor, setSelectedDoctor] = useState(null);
+  
+  // ✅ NEW: PROFILE EDITING STATES
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState({ 
+    name: "", bloodGroup: "", weight: "", heartRate: "" 
+  });
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const profileUploadRef = useRef();
+
   const token = localStorage.getItem("token");
 
-  // ✅ NOTIFICATION & SOCKET LOGIC
+  // ✅ NOTIFICATION & SOCKET LOGIC (UNCHANGED)
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
     if (!user || !token) return;
     setPatient(user);
 
-    // 1. Initialize Socket Connection
+    // Initialize editing form with existing user data
+    setFormData({
+      name: user.name || "",
+      bloodGroup: user.bloodGroup || "",
+      weight: user.weight || "",
+      heartRate: user.heartRate || ""
+    });
+
     const newSocket = io("http://localhost:5000", { 
       transports: ["websocket", "polling"],
       withCredentials: true,
@@ -30,12 +47,10 @@ export default function PatientDashboard() {
     });
     setSocket(newSocket);
 
-    // 2. Join User Room
     newSocket.on("connect", () => {
       newSocket.emit("join_user", user._id || user.id);
     });
 
-    // 3. Real-time Notification Listener
     newSocket.on("new_notification", (notif) => {
       setNotifications((prev) => [notif, ...prev]);
     });
@@ -59,20 +74,54 @@ export default function PatientDashboard() {
     } catch (err) { console.error(err); }
   };
 
+  // ✅ NEW: PROFILE UPDATE HANDLERS
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  const handleUpdateProfile = async () => {
+    const data = new FormData();
+    data.append("name", formData.name);
+    data.append("bloodGroup", formData.bloodGroup);
+    data.append("weight", formData.weight);
+    data.append("heartRate", formData.heartRate);
+    if (selectedFile) data.append("image", selectedFile);
+
+    try {
+      const res = await axios.put("http://localhost:5000/api/auth/update-profile", data, {
+        headers: { 
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${token}` 
+        }
+      });
+      
+      const updatedUser = res.data.user;
+      setPatient(updatedUser);
+      localStorage.setItem("user", JSON.stringify(updatedUser)); 
+      setIsEditing(false);
+      setSelectedFile(null);
+      setPreviewUrl(null);
+      alert("Profile updated successfully!");
+    } catch (err) {
+      alert("Update failed. Check console.");
+      console.error(err);
+    }
+  };
+
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  // ✅ UPDATED: MARK AS READ WITH DEEP LINKING
   const markAsRead = async (notification) => {
     try {
       await axios.put(`http://localhost:5000/api/notifications/${notification._id}/read`, {}, { 
         headers: { Authorization: `Bearer ${token}` } 
       });
-      
       setNotifications((prev) => 
         prev.map((n) => (n._id === notification._id ? { ...n, isRead: true } : n))
       );
-
-      // Auto-navigate based on type
       if (notification.type === "appointment_confirmed" || notification.type === "appointment_status") {
         setActiveTab("appointments");
       } else if (notification.type === "new_message") {
@@ -81,7 +130,6 @@ export default function PatientDashboard() {
     } catch (err) { console.error(err); }
   };
 
-  // ✅ NEW: CLEAR ALL READ NOTIFICATIONS
   const clearReadNotifications = async () => {
     try {
       await axios.delete("http://localhost:5000/api/notifications/clear-read", {
@@ -111,7 +159,6 @@ export default function PatientDashboard() {
     const [input, setInput] = useState("");
     const fileInputRef = useRef();
     const scrollRef = useRef();
-    
     const doctorUserId = doctor?.userId?._id || doctor?.userId || doctor?._id;
 
     useEffect(() => {
@@ -162,9 +209,7 @@ export default function PatientDashboard() {
         <div className="p-4 bg-sky-600 text-white flex items-center justify-between shadow-md">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center font-bold border border-white/30 overflow-hidden">
-              {doctor?.userId?.image ? (
-                <img src={`http://localhost:5000${doctor.userId.image}`} alt="Dr" className="w-full h-full object-cover" />
-              ) : doctor?.userId?.name?.charAt(0)}
+              {doctor?.userId?.image ? <img src={`http://localhost:5000${doctor.userId.image}`} alt="Dr" className="w-full h-full object-cover" /> : doctor?.userId?.name?.charAt(0)}
             </div>
             <div>
               <h3 className="font-bold text-sm">Dr. {doctor?.userId?.name}</h3>
@@ -213,12 +258,23 @@ export default function PatientDashboard() {
     <div className="min-h-screen bg-[#F4F7FA] p-4 md:p-6 font-sans text-slate-800">
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
         <aside className="lg:col-span-3 space-y-4">
-          <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-200/50 text-center">
-            <img 
-              src={patient?.image ? `http://localhost:5000${patient.image}` : "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"} 
-              className="w-24 h-24 rounded-3xl mx-auto object-cover mb-4 ring-4 ring-sky-50 shadow-md" 
-              alt="Profile" 
-            />
+          <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-200/50 text-center relative">
+            <div className="relative inline-block">
+                <img 
+                  src={previewUrl || (patient?.image ? `http://localhost:5000${patient.image}` : "https://cdn-icons-png.flaticon.com/512/3135/3135715.png")} 
+                  className="w-24 h-24 rounded-3xl mx-auto object-cover mb-4 ring-4 ring-sky-50 shadow-md" 
+                  alt="Profile" 
+                />
+                {isEditing && (
+                    <button 
+                        onClick={() => profileUploadRef.current.click()}
+                        className="absolute bottom-4 right-0 bg-sky-600 text-white p-2 rounded-xl shadow-lg hover:bg-sky-700 transition-all"
+                    >
+                        <Camera size={14}/>
+                    </button>
+                )}
+                <input type="file" ref={profileUploadRef} className="hidden" onChange={handleFileChange} accept="image/*" />
+            </div>
             <h3 className="font-bold text-xl text-slate-900">{patient?.name}</h3>
             <p className="text-xs font-semibold text-slate-400 mt-1 uppercase tracking-widest flex items-center justify-center gap-1">
               <ShieldCheck size={14} className="text-emerald-500"/> Patient Verified
@@ -250,26 +306,85 @@ export default function PatientDashboard() {
         <main className="lg:col-span-9 bg-white rounded-[2.5rem] p-6 md:p-10 shadow-xl border border-slate-200/50 min-h-[720px]">
           {activeTab === "profile" && (
             <div className="animate-in fade-in duration-500 space-y-8">
-              <header><h2 className="text-4xl font-black text-slate-900 tracking-tight">Your <span className="text-sky-600">Health Card</span></h2></header>
+              <header className="flex justify-between items-center">
+                <h2 className="text-4xl font-black text-slate-900 tracking-tight">Your <span className="text-sky-600">Health Card</span></h2>
+                <button 
+                  onClick={() => isEditing ? handleUpdateProfile() : setIsEditing(true)}
+                  className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl font-bold transition-all shadow-sm ${isEditing ? "bg-emerald-500 text-white hover:bg-emerald-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                >
+                  {isEditing ? <><Save size={18}/> Save Changes</> : <><Edit3 size={18}/> Edit Profile</>}
+                </button>
+              </header>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {/* BLOOD GROUP */}
                 <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 flex flex-col gap-3">
                   <div className="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-rose-500"><Droplets/></div>
-                  <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Blood Group</p><p className="font-bold text-xl">O+ Positive</p></div>
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Blood Group</p>
+                    {isEditing ? (
+                        <select 
+                            className="w-full bg-white border rounded-lg p-1 mt-1 font-bold outline-none border-sky-200"
+                            value={formData.bloodGroup}
+                            onChange={(e) => setFormData({...formData, bloodGroup: e.target.value})}
+                        >
+                            <option value="">Select</option>
+                            {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(g => <option key={g} value={g}>{g}</option>)}
+                        </select>
+                    ) : <p className="font-bold text-xl">{patient?.bloodGroup || "Not Set"}</p>}
+                  </div>
                 </div>
+
+                {/* WEIGHT */}
                 <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 flex flex-col gap-3">
                   <div className="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-sky-500"><Scale/></div>
-                  <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Weight Status</p><p className="font-bold text-xl">74.5 KG</p></div>
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Weight Status</p>
+                    {isEditing ? (
+                        <input 
+                            type="text" className="w-full bg-white border rounded-lg p-1 mt-1 font-bold outline-none border-sky-200"
+                            value={formData.weight}
+                            onChange={(e) => setFormData({...formData, weight: e.target.value})}
+                        />
+                    ) : <p className="font-bold text-xl">{patient?.weight || "0"} KG</p>}
+                  </div>
                 </div>
+
+                {/* HEART RATE */}
                 <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 flex flex-col gap-3">
                   <div className="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-emerald-500"><Activity/></div>
-                  <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Heart Rate</p><p className="font-bold text-xl">72 BPM</p></div>
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Heart Rate</p>
+                    {isEditing ? (
+                        <input 
+                            type="text" className="w-full bg-white border rounded-lg p-1 mt-1 font-bold outline-none border-sky-200"
+                            value={formData.heartRate}
+                            onChange={(e) => setFormData({...formData, heartRate: e.target.value})}
+                        />
+                    ) : <p className="font-bold text-xl">{patient?.heartRate || "0"} BPM</p>}
+                  </div>
                 </div>
               </div>
-              <div className="p-8 bg-gradient-to-br from-slate-900 to-slate-800 rounded-[2.5rem] text-white shadow-2xl">
-                <h4 className="text-sky-400 font-bold text-xs uppercase tracking-[0.2em] mb-6">Patient Identification</h4>
-                <div className="grid md:grid-cols-2 gap-8">
-                  <div><p className="text-slate-500 text-[10px] font-bold uppercase">Official Name</p><p className="text-xl font-bold tracking-wide mt-1">{patient?.name}</p></div>
-                  <div><p className="text-slate-500 text-[10px] font-bold uppercase">Email Account</p><p className="text-xl font-bold tracking-wide mt-1">{patient?.email}</p></div>
+
+              {/* ID CARD */}
+              <div className="p-8 bg-gradient-to-br from-slate-900 to-slate-800 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-sky-500/10 rounded-full -mr-20 -mt-20 blur-3xl"></div>
+                <h4 className="text-sky-400 font-bold text-xs uppercase tracking-[0.2em] mb-6 relative z-10">Patient Identification</h4>
+                <div className="grid md:grid-cols-2 gap-8 relative z-10">
+                  <div>
+                    <p className="text-slate-500 text-[10px] font-bold uppercase">Official Name</p>
+                    {isEditing ? (
+                        <input 
+                            type="text" className="bg-slate-700 text-white border-none rounded-lg p-2 mt-1 w-full outline-none focus:ring-2 focus:ring-sky-500"
+                            value={formData.name}
+                            onChange={(e) => setFormData({...formData, name: e.target.value})}
+                        />
+                    ) : <p className="text-xl font-bold tracking-wide mt-1">{patient?.name}</p>}
+                  </div>
+                  <div>
+                    <p className="text-slate-500 text-[10px] font-bold uppercase">Email Account</p>
+                    <p className="text-xl font-bold tracking-wide mt-1 opacity-80">{patient?.email}</p>
+                  </div>
                 </div>
               </div>
             </div>
