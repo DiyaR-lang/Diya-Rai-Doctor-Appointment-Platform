@@ -1,12 +1,18 @@
 import express from "express";
-import { verifyKhaltiPayment, initiateKhaltiPayment } from "../controller/paymentController.js";
+// ✅ Add getReceipt to this import line
+import { 
+  verifyKhaltiPayment, 
+  initiateKhaltiPayment, 
+  getReceipt 
+} from "../controller/paymentController.js";
 
 const router = express.Router();
 
-// This matches: POST /api/payment/khalti/initiate
 router.post("/khalti/initiate", initiateKhaltiPayment);
-
-// This matches: POST /api/payment/verify
 router.post("/verify", verifyKhaltiPayment);
+
+// Now this will work!
+router.get("/receipt/:transactionId", getReceipt);
+
 
 export default router;

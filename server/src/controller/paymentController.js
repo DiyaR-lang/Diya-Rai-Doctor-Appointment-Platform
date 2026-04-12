@@ -37,41 +37,53 @@ export const initiateKhaltiPayment = async (req, res) => {
 };
 
 // --- 2. VERIFY PAYMENT (Updated for Sandbox URLs) ---
+// controller/paymentController.js
+// controller/paymentController.js
 export const verifyKhaltiPayment = async (req, res) => {
-  const { pidx, userId, doctorId, amount } = req.body;
+  const { pidx } = req.body;
 
   try {
-    const response = await axios.post(
-      "https://dev.khalti.com/api/v2/epayment/lookup/",
-      { pidx }, // Use pidx here
-      {
-        headers: {
-          Authorization: `Key ${process.env.KHALTI_SECRET_KEY.trim()}`,
-          "Content-Type": "application/json",
-        },
-      }
+    const khaltiResponse = await axios.post(
+      "https://a.khalti.com/api/v2/epayment/lookup/",
+      { pidx },
+      { headers: { Authorization: `Key ${process.env.KHALTI_SECRET_KEY}` } }
     );
 
-    // ✅ Match the 'Completed' state from your screenshot
-    if (response.data.status === "Completed") { 
-      const payment = await Payment.create({
-        userId,
-        doctorId,
-        amount,
-        transactionId: pidx, 
-        status: "completed",
-      });
+    // DEBUG: Log this to see the status Khalti is sending back
+    console.log("Khalti Status:", khaltiResponse.data.status);
 
-      return res.status(200).json({
-        success: true,
-        message: "Payment saved to database successfully!",
-        payment,
+    if (khaltiResponse.data.status !== "Completed") {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Payment is still ${khaltiResponse.data.status}. Please complete payment first.` 
       });
     }
 
-    res.status(400).json({ success: false, message: "Payment status is not Completed" });
+    // ONLY save if status is 'Completed'
+    const payment = await Payment.findOneAndUpdate(
+      { transactionId: pidx },
+      { status: "Completed", amount: khaltiResponse.data.total_amount / 100 },
+      { upsert: true, new: true }
+    );
+
+    res.status(200).json({ success: true, payment });
   } catch (error) {
-    console.error("DB Save Error:", error.response?.data || error.message);
-    res.status(500).json({ success: false, message: "Server error during DB save" });
+    res.status(500).json({ success: false, message: "Verification API error" });
+  }
+};
+// controller/paymentController.js
+
+export const getReceipt = async (req, res) => {
+  try {
+    const { transactionId } = req.params;
+    const payment = await Payment.findOne({ transactionId });
+
+    if (!payment) {
+      return res.status(404).json({ success: false, message: "Receipt not found" });
+    }
+
+    res.status(200).json({ success: true, payment });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error fetching receipt" });
   }
 };
