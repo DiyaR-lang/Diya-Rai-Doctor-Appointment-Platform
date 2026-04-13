@@ -8,7 +8,7 @@ node_modules/
 client/node_modules/
 server/node_modules/
 
-# Build/dist folders
+# Build/dist folders the remaining files are needed for development but not for production
 dist/
 build/
 
