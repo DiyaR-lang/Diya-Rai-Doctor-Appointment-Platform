@@ -25,17 +25,16 @@ export default function App() {
       {/* Routes that include the Navbar/Footer from Layout */}
       <Route path="/" element={<Layout />}>
         
-        {/* 1. Redirect root to /home so the URL always shows 'home' */}
         <Route index element={<Navigate to="/home" replace />} />
-        
-        {/* 2. Explicit path for the Home page */}
         <Route path="home" element={<Home />} />
 
         <Route path="login" element={<Login />} />
         <Route path="register" element={<Register />} />
         
-        {/* 3. Standardized path (all lowercase) for All Doctors */}
         <Route path="all-doctors" element={<AllDoctors />} />
+        
+        {/* --- ADD THIS ROUTE TO FIX THE 404 --- */}
+        <Route path="payment-success" element={<AllDoctors />} />
         
         <Route path="notifications" element={<Notifications />} />
         
@@ -45,7 +44,6 @@ export default function App() {
         <Route path="patient/dashboard" element={<PatientDashboard />} />
       </Route>
 
-      {/* Full-Screen Video Call Route */}
       <Route path="/video-call/:roomId" element={<VideoCall />} />
 
       {/* Catch-all for 404 errors */}

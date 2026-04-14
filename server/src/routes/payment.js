@@ -1,18 +1,23 @@
 import express from "express";
-// ✅ Add getReceipt to this import line
 import { 
   verifyKhaltiPayment, 
   initiateKhaltiPayment, 
-  getReceipt 
-} from "../controller/paymentController.js";
+  getReceipt,
+  getMyReceipt,
+  getDoctorReceipt 
+} from "../controller/paymentcontroller.js";
+import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.post("/khalti/initiate", initiateKhaltiPayment);
+router.post("/khalti/initiate", protect, initiateKhaltiPayment);
 router.post("/verify", verifyKhaltiPayment);
 
-// Now this will work!
-router.get("/receipt/:transactionId", getReceipt);
+// Dashboard Routes - Updated to singular 'receipt'
+router.get("/my-receipt", protect, getMyReceipt); // For Patients
+router.get("/doctor-receipt", protect, getDoctorReceipt); // For Doctors
 
+// Single Receipt Route
+router.get("/receipt/:transactionId", getReceipt);
 
 export default router;

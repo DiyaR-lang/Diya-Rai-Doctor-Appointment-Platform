@@ -1,5 +1,6 @@
 import axios from "axios";
 import Payment from "../models/Payment.js";
+import Doctor from "../models/Doctor.js";
 
 // --- 1. INITIATE PAYMENT (The part you were missing) ---
 export const initiateKhaltiPayment = async (req, res) => {
@@ -85,5 +86,48 @@ export const getReceipt = async (req, res) => {
     res.status(200).json({ success: true, payment });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error fetching receipt" });
+  }
+};
+
+// --- For Patient Dashboard ---
+// Update getMyReceipt to match the new schema
+export const getMyReceipt = async (req, res) => {
+  try {
+    const receipts = await Payment.find({ patient: req.user._id })
+      .populate({
+        path: "doctor",
+        populate: { path: "userId", select: "name" }
+      })
+      .sort({ createdAt: -1 });
+    res.status(200).json(receipts);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching receipts" });
+  }
+};
+
+
+export const getDoctorReceipt = async (req, res) => {
+  try {
+    // 1. Find the doctor profile associated with the logged-in User
+    // (Assuming req.user._id is populated by your 'protect' middleware)
+    const doctorProfile = await Doctor.findOne({ userId: req.user._id });
+
+    if (!doctorProfile) {
+      return res.status(404).json({ message: "Doctor profile not found" });
+    }
+
+    // 2. Fetch payments linked to this doctor
+    // Ensure the field name in your Payment model is 'doctor' 
+    const receipt = await Payment.find({ 
+      doctor: doctorProfile._id,
+      status: "Completed" // Only show actual earnings
+    })
+    .populate("patient", "name email image")
+    .sort({ createdAt: -1 });
+
+    res.status(200).json(receipt);
+  } catch (error) {
+    console.error("Doctor Receipt Error:", error);
+    res.status(500).json({ message: "Error fetching doctor receipt" });
   }
 };

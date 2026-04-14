@@ -4,7 +4,7 @@ import { io } from "socket.io-client";
 import { 
   User, Calendar, Bell, MessageSquare, LogOut, 
   Video, Image as ImageIcon, Send, Clock, CheckCircle2, 
-  Activity, Droplets, Scale, ShieldCheck, X, Trash2, Camera, Edit3, Save
+  Activity, Droplets, Scale, ShieldCheck, X, Trash2, Camera, Edit3, Save, Receipt
 } from "lucide-react";
 
 export default function PatientDashboard() {
@@ -15,7 +15,10 @@ export default function PatientDashboard() {
   const [socket, setSocket] = useState(null);
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   
-  // ✅ NEW: PROFILE EDITING STATES
+  // ✅ RECEIPT STATES
+  const [selectedReceipt, setSelectedReceipt] = useState(null);
+
+  // ✅ PROFILE EDITING STATES
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({ 
     name: "", bloodGroup: "", weight: "", heartRate: "" 
@@ -26,13 +29,11 @@ export default function PatientDashboard() {
 
   const token = localStorage.getItem("token");
 
-  // ✅ NOTIFICATION & SOCKET LOGIC (UNCHANGED)
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
     if (!user || !token) return;
     setPatient(user);
 
-    // Initialize editing form with existing user data
     setFormData({
       name: user.name || "",
       bloodGroup: user.bloodGroup || "",
@@ -74,7 +75,6 @@ export default function PatientDashboard() {
     } catch (err) { console.error(err); }
   };
 
-  // ✅ NEW: PROFILE UPDATE HANDLERS
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -153,7 +153,7 @@ export default function PatientDashboard() {
     window.location.href = "/login";
   };
 
-  // --- CHAT BOX LOGIC (UNCHANGED) ---
+  // --- CHAT BOX LOGIC ---
   function ChatBox({ patientId, doctor, mainSocket }) {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState("");
@@ -285,6 +285,7 @@ export default function PatientDashboard() {
             {[
               { id: "profile", label: "Dashboard", icon: <Activity size={18}/> },
               { id: "appointments", label: "My Visits", icon: <Calendar size={18}/> },
+              { id: "receipts", label: "Receipts", icon: <Receipt size={18}/> },
               { id: "notifications", label: "Inbox", icon: <Bell size={18}/>, badge: unreadCount },
               { id: "chat", label: "Consultation", icon: <MessageSquare size={18}/> }
             ].map((t) => (
@@ -317,7 +318,6 @@ export default function PatientDashboard() {
               </header>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                {/* BLOOD GROUP */}
                 <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 flex flex-col gap-3">
                   <div className="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-rose-500"><Droplets/></div>
                   <div>
@@ -335,7 +335,6 @@ export default function PatientDashboard() {
                   </div>
                 </div>
 
-                {/* WEIGHT */}
                 <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 flex flex-col gap-3">
                   <div className="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-sky-500"><Scale/></div>
                   <div>
@@ -350,7 +349,6 @@ export default function PatientDashboard() {
                   </div>
                 </div>
 
-                {/* HEART RATE */}
                 <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 flex flex-col gap-3">
                   <div className="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-emerald-500"><Activity/></div>
                   <div>
@@ -366,7 +364,6 @@ export default function PatientDashboard() {
                 </div>
               </div>
 
-              {/* ID CARD */}
               <div className="p-8 bg-gradient-to-br from-slate-900 to-slate-800 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-sky-500/10 rounded-full -mr-20 -mt-20 blur-3xl"></div>
                 <h4 className="text-sky-400 font-bold text-xs uppercase tracking-[0.2em] mb-6 relative z-10">Patient Identification</h4>
@@ -413,10 +410,46 @@ export default function PatientDashboard() {
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
+                      {a.status === "confirmed" && (
+                        <button 
+                          onClick={() => { setActiveTab("receipts"); setSelectedReceipt(a); }}
+                          className="text-[10px] font-black text-sky-500 hover:bg-sky-50 px-3 py-2 rounded-xl border border-sky-100 transition-all uppercase"
+                        >
+                          RECEIPT
+                        </button>
+                      )}
                       <span className={`text-[10px] font-black uppercase px-4 py-2 rounded-full tracking-wider ${a.status === 'confirmed' ? 'bg-emerald-500 text-white' : 'bg-amber-400 text-white'}`}>
                         {a.status}
                       </span>
                       <button onClick={() => deleteAppointment(a._id)} className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"><X size={20}/></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ✅ NEW: RECEIPTS TAB CONTENT */}
+          {activeTab === "receipts" && (
+            <div className="space-y-6 animate-in fade-in duration-500">
+              <h2 className="text-3xl font-black text-slate-900">Billing & <span className="text-sky-600">Receipts</span></h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {appointments.filter(a => a.status === "confirmed").map((appt) => (
+                  <div key={appt._id} className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 relative overflow-hidden group">
+                    <p className="text-[10px] font-black text-slate-400 uppercase mb-2">Invoice #{appt._id.slice(-6).toUpperCase()}</p>
+                    <p className="font-bold text-slate-800">Consultation: Dr. {appt.doctorId?.userId?.name}</p>
+                    <p className="text-xs text-slate-500 mb-4">{new Date(appt.date).toLocaleDateString()}</p>
+                    <div className="flex justify-between items-end">
+                      <div>
+                        <p className="text-[10px] font-black text-emerald-600 uppercase">Amount Paid</p>
+                        <p className="text-xl font-black text-slate-900">Rs. {appt.fee || appt.doctorId?.fee || "500"}</p>
+                      </div>
+                      <button 
+                        onClick={() => setSelectedReceipt(appt)}
+                        className="bg-white border border-slate-200 px-4 py-2 rounded-xl text-[10px] font-black hover:bg-slate-900 hover:text-white transition-all shadow-sm"
+                      >
+                        DETAILS
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -480,6 +513,33 @@ export default function PatientDashboard() {
           )}
         </main>
       </div>
+
+      {/* ✅ VIRTUAL RECEIPT MODAL */}
+      {selectedReceipt && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-[3rem] p-10 shadow-2xl relative animate-in zoom-in duration-300">
+            <button onClick={() => setSelectedReceipt(null)} className="absolute top-6 right-6 text-slate-300 hover:text-slate-900 text-2xl">×</button>
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 bg-sky-600 rounded-2xl mx-auto mb-4 flex items-center justify-center text-white text-3xl font-bold">P</div>
+              <h3 className="text-xl font-black tracking-tighter">PRESCRIPTO MEDICAL</h3>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Payment Receipt</p>
+            </div>
+            <div className="space-y-4 border-t border-b border-slate-100 py-6 mb-6">
+              <div className="flex justify-between text-sm"><span className="text-slate-400">Patient:</span><span className="font-bold">{patient?.name}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-slate-400">Doctor:</span><span className="font-bold">Dr. {selectedReceipt.doctorId?.userId?.name}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-slate-400">Date:</span><span className="font-bold">{new Date(selectedReceipt.date).toLocaleDateString()}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-slate-400">ID:</span><span className="font-bold font-mono text-[10px] uppercase">#{selectedReceipt._id.slice(-8)}</span></div>
+            </div>
+            <div className="bg-slate-50 p-6 rounded-2xl flex justify-between items-center mb-8">
+              <span className="font-black text-slate-500 uppercase text-xs">Total Charged</span>
+              <span className="font-black text-2xl text-emerald-600">Rs. {selectedReceipt.fee || selectedReceipt.doctorId?.fee || "500"}</span>
+            </div>
+            <button onClick={() => window.print()} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-sky-600 transition-all">
+              Print Receipt
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
