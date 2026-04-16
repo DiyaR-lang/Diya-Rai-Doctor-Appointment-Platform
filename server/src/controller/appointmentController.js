@@ -66,3 +66,21 @@ export const bookAppointment = async (req, res) => {
     res.status(500).json({ message: "Booking failed", error: error.message });
   }
 };
+router.get("/doctor/new-requests", protect, authorizeRoles("doctor"), async (req, res) => {
+  try {
+    const doctorProfile = await Doctor.findOne({ userId: req.user._id });
+    
+    // Logic: Find appointments that are PAID but still PENDING confirmation
+    const newAppointments = await Appointment.find({ 
+      doctorId: doctorProfile._id,
+      paymentStatus: "paid", 
+      status: "pending" 
+    })
+    .populate("patientId", "name email image")
+    .sort({ createdAt: -1 });
+
+    res.json(newAppointments);
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});

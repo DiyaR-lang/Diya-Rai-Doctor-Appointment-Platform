@@ -1,7 +1,7 @@
 import axios from "axios";
 import Payment from "../models/Payment.js";
 import Doctor from "../models/Doctor.js";
-
+import Appointment from "../models/Appointment.js";
 // --- 1. INITIATE PAYMENT (The part you were missing) ---
 export const initiateKhaltiPayment = async (req, res) => {
   try {
@@ -38,38 +38,62 @@ export const initiateKhaltiPayment = async (req, res) => {
 };
 
 // --- 2. VERIFY PAYMENT (Updated for Sandbox URLs) ---
-// controller/paymentController.js
-// controller/paymentController.js
 export const verifyKhaltiPayment = async (req, res) => {
-  const { pidx } = req.body;
+  const { pidx, appointmentId } = req.body;
+
+  if (!pidx || !appointmentId) {
+    return res.status(400).json({ success: false, message: "Missing pidx or appointmentId" });
+  }
 
   try {
     const khaltiResponse = await axios.post(
       "https://a.khalti.com/api/v2/epayment/lookup/",
       { pidx },
-      { headers: { Authorization: `Key ${process.env.KHALTI_SECRET_KEY}` } }
+      {
+        headers: {
+          Authorization: `Key ${process.env.KHALTI_SECRET_KEY}`,
+          'Content-Type': 'application/json',
+        },
+      }
     );
 
-    // DEBUG: Log this to see the status Khalti is sending back
-    console.log("Khalti Status:", khaltiResponse.data.status);
+    if (khaltiResponse.data.status === "Completed") {
+      // This line was crashing because 'Appointment' wasn't imported!
+      const updatedAppointment = await Appointment.findByIdAndUpdate(
+        appointmentId,
+        { 
+          paymentStatus: "paid", 
+          transactionId: khaltiResponse.data.transaction_id 
+        },
+        { new: true }
+      );
 
-    if (khaltiResponse.data.status !== "Completed") {
-      return res.status(400).json({ 
-        success: false, 
-        message: `Payment is still ${khaltiResponse.data.status}. Please complete payment first.` 
+      if (!updatedAppointment) {
+        return res.status(404).json({ success: false, message: "Appointment record not found" });
+      }
+
+      // OPTIONAL: Create a record in your Payment collection too
+      await Payment.create({
+        userId: updatedAppointment.patientId,
+        doctorId: updatedAppointment.doctorId,
+        amount: khaltiResponse.data.total_amount / 100,
+        transactionId: khaltiResponse.data.transaction_id,
+        status: "Completed"
       });
+
+      return res.status(200).json({
+        success: true,
+        payment: {
+          transactionId: khaltiResponse.data.transaction_id,
+          amount: khaltiResponse.data.total_amount / 100,
+        }
+      });
+    } else {
+      return res.status(400).json({ success: false, message: "Khalti payment not completed" });
     }
-
-    // ONLY save if status is 'Completed'
-    const payment = await Payment.findOneAndUpdate(
-      { transactionId: pidx },
-      { status: "Completed", amount: khaltiResponse.data.total_amount / 100 },
-      { upsert: true, new: true }
-    );
-
-    res.status(200).json({ success: true, payment });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Verification API error" });
+    console.error("Khalti Verify Error:", error.response?.data || error.message);
+    res.status(500).json({ success: false, message: "Internal Server Error during verification" });
   }
 };
 // controller/paymentController.js
@@ -108,26 +132,44 @@ export const getMyReceipt = async (req, res) => {
 
 export const getDoctorReceipt = async (req, res) => {
   try {
-    // 1. Find the doctor profile associated with the logged-in User
-    // (Assuming req.user._id is populated by your 'protect' middleware)
+    const doctorProfile = await Doctor.findOne({ userId: req.user._id });
+    if (!doctorProfile) return res.status(404).json({ message: "Doctor profile not found" });
+
+    // Find all completed payments
+    const payments = await Payment.find({ doctorId: doctorProfile._id, status: "Completed" });
+    
+    // Extract transaction IDs or Appointment IDs to cross-verify status
+    // Or simpler: filter appointments that are PAID AND CONFIRMED
+    const earnings = await Appointment.find({
+      doctorId: doctorProfile._id,
+      paymentStatus: "paid",
+      status: "confirmed" // Only confirmed appointments count as finalized earnings
+    }).populate("patientId", "name email image");
+
+    res.status(200).json(earnings);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching doctor earnings" });
+  }
+};
+export const getDoctorEarnings = async (req, res) => {
+  try {
     const doctorProfile = await Doctor.findOne({ userId: req.user._id });
 
-    if (!doctorProfile) {
-      return res.status(404).json({ message: "Doctor profile not found" });
-    }
+    // Logic: Only sum the 'fee' if paymentStatus is 'paid' AND status is 'confirmed'
+    const earnedAppointments = await Appointment.find({
+      doctorId: doctorProfile._id,
+      paymentStatus: "paid",
+      status: "confirmed"
+    });
 
-    // 2. Fetch payments linked to this doctor
-    // Ensure the field name in your Payment model is 'doctor' 
-    const receipt = await Payment.find({ 
-      doctor: doctorProfile._id,
-      status: "Completed" // Only show actual earnings
-    })
-    .populate("patient", "name email image")
-    .sort({ createdAt: -1 });
+    const totalEarnings = earnedAppointments.reduce((sum, item) => sum + (item.fee || 0), 0);
 
-    res.status(200).json(receipt);
+    res.status(200).json({
+      totalEarnings,
+      appointmentCount: earnedAppointments.length,
+      history: earnedAppointments
+    });
   } catch (error) {
-    console.error("Doctor Receipt Error:", error);
-    res.status(500).json({ message: "Error fetching doctor receipt" });
+    res.status(500).json({ message: "Error calculating earnings" });
   }
 };

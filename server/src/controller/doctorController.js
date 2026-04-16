@@ -82,3 +82,24 @@ export const getDoctorDetails = async (req, res) => {
     res.status(500).json({ message: "Error fetching doctor details" });
   }
 };
+
+// DELETE AVAILABILITY
+export const deleteAvailability = async (req, res) => {
+  try {
+    const { date } = req.params; 
+    const doctor = await Doctor.findOne({ userId: req.user._id });
+
+    if (!doctor) {
+      return res.status(404).json({ message: "Doctor profile not found" });
+    }
+
+    // Decode URL date and filter it out
+    const decodedDate = decodeURIComponent(date);
+    doctor.availability = doctor.availability.filter((a) => a.date !== decodedDate);
+
+    await doctor.save();
+    res.status(200).json({ message: "Schedule deleted successfully", availability: doctor.availability });
+  } catch (error) {
+    res.status(500).json({ message: "Server Error", error: error.message });
+  }
+};

@@ -11,15 +11,17 @@ export default function DoctorDashboard() {
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // --- PROFILE & SCHEDULE STATES ---
   const [doctorProfile, setDoctorProfile] = useState(null);
   const [newDay, setNewDay] = useState({ date: "", nepaliDate: "", slots: "" });
 
   const token = localStorage.getItem("token");
 
-  // =========================
-  // IMAGE LOGIC (INTEGRATED)
-  // =========================
+  // Filtering for Earnings and Metrics
+  const paidAppointments = appointments.filter(
+    (a) => a.status === "confirmed" && a.paymentStatus === "paid"
+  );
+  const totalEarnings = paidAppointments.reduce((sum, app) => sum + (app.fee || 0), 0);
+
   const getProfileImage = () => {
     if (!doctorProfile) return "https://via.placeholder.com/150";
     if (doctorProfile.image) return `http://localhost:5000${doctorProfile.image}`;
@@ -108,6 +110,21 @@ export default function DoctorDashboard() {
     }
   };
 
+  // NEW: DELETE INTEGRATION
+  const handleDeleteSchedule = async (dateToDelete) => {
+    if (!window.confirm(`Are you sure you want to delete the schedule for ${dateToDelete}?`)) return;
+    try {
+      const encodedDate = encodeURIComponent(dateToDelete);
+      await axios.delete(`http://localhost:5000/api/doctors/availability/${encodedDate}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchInitialData(); // Refresh UI
+    } catch (err) {
+      console.error("Delete Error:", err);
+      alert("Failed to delete schedule.");
+    }
+  };
+
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   const markAsRead = async (notification) => {
@@ -115,9 +132,9 @@ export default function DoctorDashboard() {
       await axios.put(`http://localhost:5000/api/notifications/${notification._id}/read`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setNotifications((prev) => prev.map((n) => (n._id === notification._id ? { ...n, isRead: true } : n)));
-      if (notification.type === "appointment_booked") setActiveTab("appointments");
-      else if (notification.type === "new_message") setActiveTab("chat");
+      setNotifications((prev) => 
+        prev.map((n) => (n._id === notification._id ? { ...n, isRead: true } : n))
+      );
     } catch (err) { console.error(err); }
   };
 
@@ -136,7 +153,9 @@ export default function DoctorDashboard() {
         headers: { Authorization: `Bearer ${token}` },
       });
       fetchInitialData();
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+      alert(err.response?.data?.message || "Action failed");
+    }
   };
 
   // --- ChatBox Component ---
@@ -211,7 +230,7 @@ export default function DoctorDashboard() {
           </div>
           <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
         </div>
-        <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-white/30">
+        <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-white/30 custom-scrollbar max-h-[600px]">
           {messages.map((msg, i) => {
             const isImage = msg.message.match(/\.(jpeg|jpg|gif|png|jfif|webp)$/i);
             const isVideoCall = msg.messageType === "video_call";
@@ -250,26 +269,25 @@ export default function DoctorDashboard() {
   );
 
   return (
-    <div className="min-h-screen bg-[#F0F4F8] text-slate-900 font-sans selection:bg-emerald-100 selection:text-emerald-900" style={{ backgroundImage: "radial-gradient(at 0% 0%, hsla(199,100%,93%,1) 0, transparent 50%), radial-gradient(at 100% 100%, hsla(152,81%,92%,1) 0, transparent 50%)", backgroundAttachment: "fixed" }}>
+    <div className="min-h-screen bg-[#F0F4F8] text-slate-900 font-sans" style={{ backgroundImage: "radial-gradient(at 0% 0%, hsla(199,100%,93%,1) 0, transparent 50%), radial-gradient(at 100% 100%, hsla(152,81%,92%,1) 0, transparent 50%)", backgroundAttachment: "fixed" }}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #E2E8F0; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #CBD5E1; }
+      `}} />
+
       <div className="max-w-[1600px] mx-auto p-4 md:p-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
-          {/* NAVIGATION BAR - FIXED STYLE */}
+          {/* Sidebar */}
           <aside className="lg:col-span-3 space-y-6">
-            <div className="bg-white/60 backdrop-blur-2xl border border-white rounded-[3.5rem] p-10 text-center shadow-2xl shadow-sky-900/5 transition-all hover:shadow-emerald-900/5">
+            <div className="bg-white/60 backdrop-blur-2xl border border-white rounded-[3.5rem] p-10 text-center shadow-2xl shadow-sky-900/5">
               <div className="relative inline-block group">
                   <div className="absolute inset-0 bg-emerald-400 rounded-[2.5rem] blur-2xl opacity-20 group-hover:opacity-40 transition-opacity"></div>
-                  <img 
-                    src={getProfileImage()} 
-                    className="relative w-32 h-32 rounded-[2.5rem] mx-auto object-cover mb-6 border-4 border-white shadow-xl" 
-                    alt="Doctor" 
-                  />
-                  <div className="absolute bottom-4 right-0 w-8 h-8 bg-emerald-500 border-4 border-white rounded-2xl shadow-lg flex items-center justify-center text-[10px] text-white">✓</div>
+                  <img src={getProfileImage()} className="relative w-32 h-32 rounded-[2.5rem] mx-auto object-cover mb-6 border-4 border-white shadow-xl" alt="Doctor" />
               </div>
-              <h3 className="font-black text-2xl text-slate-900 tracking-tight">Dr. {doctorProfile?.userId?.name || doctor?.name}</h3>
-              <p className="text-[11px] text-emerald-600 font-black uppercase tracking-[0.25em] mt-3 bg-emerald-50/50 inline-block px-6 py-2 rounded-full border border-emerald-100">
-                  {doctorProfile?.specialty || "Practitioner"}
-              </p>
+              <h3 className="font-black text-2xl text-slate-900 tracking-tight">{doctorProfile?.userId?.name || doctor?.name}</h3>
+              <p className="text-[11px] text-emerald-600 font-black uppercase tracking-[0.25em] mt-3 bg-emerald-50/50 inline-block px-6 py-2 rounded-full border border-emerald-100">{doctorProfile?.specialty || "Practitioner"}</p>
             </div>
 
             <nav className="bg-white/40 backdrop-blur-2xl border border-white rounded-[3rem] overflow-hidden shadow-xl shadow-sky-900/5">
@@ -277,6 +295,7 @@ export default function DoctorDashboard() {
                 { id: "profile", label: "Dashboard", icon: "❖" },
                 { id: "availability", label: "My Timing", icon: "⏲" },
                 { id: "appointments", label: "Patient List", icon: "☷" },
+                { id: "earnings", label: "Earnings", icon: "💰" },
                 { id: "notifications", label: "System Alerts", icon: "⚡", badge: unreadCount },
                 { id: "chat", label: "Consultation", icon: "◉" }
               ].map((t) => (
@@ -288,83 +307,138 @@ export default function DoctorDashboard() {
             </nav>
           </aside>
 
-          {/* MAIN CONTENT AREA */}
+          {/* Main Content Area */}
           <main className="lg:col-span-9 bg-white/70 backdrop-blur-3xl border border-white rounded-[4rem] p-10 md:p-16 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.05)] min-h-[850px] relative overflow-hidden">
             
-            {/* STATS OVERVIEW (Visual Enhancements) */}
-            <div className="flex gap-6 mb-16 overflow-x-auto pb-4 scrollbar-hide">
-                <div className="flex-1 min-w-[200px] p-8 bg-gradient-to-br from-sky-500 to-sky-600 rounded-[2.5rem] text-white shadow-xl shadow-sky-500/20">
-                    <p className="text-[10px] font-black uppercase tracking-widest opacity-70">Total Appointments</p>
-                    <p className="text-4xl font-black mt-2">{appointments.length}</p>
-                </div>
-                <div className="flex-1 min-w-[200px] p-8 bg-white border border-emerald-100 rounded-[2.5rem] shadow-xl shadow-emerald-900/5">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Unread Alerts</p>
-                    <p className="text-4xl font-black mt-2 text-slate-800">{unreadCount}</p>
-                </div>
-                <div className="flex-1 min-w-[200px] p-8 bg-white border border-sky-100 rounded-[2.5rem] shadow-xl shadow-sky-900/5">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-sky-500">Consultation Fee</p>
-                    <p className="text-4xl font-black mt-2 text-slate-800">Rs. {doctorProfile?.fee || '0'}</p>
-                </div>
-            </div>
-
-            {/* PROFILE TAB */}
             {activeTab === "profile" && (
-              <div className="animate-in fade-in slide-in-from-bottom-8 duration-1000">
-                <div className="mb-12">
-                  <h2 className="text-5xl font-black text-slate-900 tracking-tighter">Medical Records</h2>
-                  <div className="h-1.5 w-24 bg-gradient-to-r from-emerald-500 to-sky-500 rounded-full mt-4"></div>
+              <>
+                <div className="flex gap-6 mb-16 overflow-x-auto pb-4 custom-scrollbar">
+                    <div className="flex-1 min-w-[200px] p-8 bg-gradient-to-br from-sky-500 to-sky-600 rounded-[2.5rem] text-white shadow-xl">
+                        <p className="text-[10px] font-black uppercase tracking-widest opacity-70">Active Schedule</p>
+                        <p className="text-4xl font-black mt-2">{appointments.filter(a => a.status === 'confirmed').length}</p>
+                    </div>
+                    <div className="flex-1 min-w-[200px] p-8 bg-white border border-emerald-100 rounded-[2.5rem] shadow-xl">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Unread Alerts</p>
+                        <p className="text-4xl font-black mt-2 text-slate-800">{unreadCount}</p>
+                    </div>
+                    <div onClick={() => setActiveTab("earnings")} className="flex-1 min-w-[200px] p-8 bg-white border border-sky-100 rounded-[2.5rem] shadow-xl cursor-pointer">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-sky-500">Confirmed Earnings</p>
+                        <p className="text-4xl font-black mt-2 text-slate-800">Rs. {totalEarnings}</p>
+                    </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                   <div className="p-10 bg-white/50 border border-white rounded-[3.5rem] shadow-sm group hover:shadow-xl transition-all">
-                      <p className="text-[12px] font-black text-emerald-500 uppercase tracking-[0.3em] mb-8">Personal Credentials</p>
-                      <div className="space-y-6">
-                          <div className="flex justify-between items-center"><span className="text-[11px] font-bold text-slate-400 uppercase">Doctor Name</span><span className="font-black text-slate-800">Dr. {doctorProfile?.userId?.name}</span></div>
-                          <div className="flex justify-between items-center"><span className="text-[11px] font-bold text-slate-400 uppercase">NMC License</span><span className="font-black text-slate-800">{doctorProfile?.nmcId}</span></div>
-                          <div className="flex justify-between items-center"><span className="text-[11px] font-bold text-slate-400 uppercase">Field</span><span className="font-black text-emerald-600 bg-emerald-50 px-4 py-1 rounded-xl">{doctorProfile?.specialty}</span></div>
-                          <div className="flex justify-between items-center"><span className="text-[11px] font-bold text-slate-400 uppercase">Experience</span><span className="font-black text-slate-800">{doctorProfile?.experience} Years</span></div>
+
+                <div className="animate-in fade-in slide-in-from-bottom-8 duration-1000">
+                  <div className="mb-12">
+                    <h2 className="text-5xl font-black text-slate-900 tracking-tighter">Medical Records</h2>
+                    <div className="h-1.5 w-24 bg-gradient-to-r from-emerald-500 to-sky-500 rounded-full mt-4"></div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <div className="p-10 bg-white/50 border border-white rounded-[3.5rem] shadow-sm">
+                        <p className="text-[12px] font-black text-emerald-500 uppercase tracking-[0.3em] mb-8">Personal Credentials</p>
+                        <div className="space-y-6">
+                            <div className="flex justify-between items-center"><span className="text-[11px] font-bold text-slate-400 uppercase">Doctor Name</span><span className="font-black text-slate-800">{doctorProfile?.userId?.name}</span></div>
+                            <div className="flex justify-between items-center"><span className="text-[11px] font-bold text-slate-400 uppercase">NMC License</span><span className="font-black text-slate-800">{doctorProfile?.nmcId}</span></div>
+                            <div className="flex justify-between items-center"><span className="text-[11px] font-bold text-slate-400 uppercase">Field</span><span className="font-black text-emerald-600 bg-emerald-50 px-4 py-1 rounded-xl">{doctorProfile?.specialty}</span></div>
+                        </div>
+                    </div>
+                    <div className="p-10 bg-white/50 border border-white rounded-[3.5rem] shadow-sm">
+                        <p className="text-[12px] font-black text-sky-500 uppercase tracking-[0.3em] mb-8">Access Points</p>
+                        <div className="space-y-6">
+                            <div className="flex justify-between items-center"><span className="text-[11px] font-bold text-slate-400 uppercase">Email</span><span className="font-black text-slate-800">{doctorProfile?.userId?.email}</span></div>
+                            <div className="flex justify-between items-center"><span className="text-[11px] font-bold text-slate-400 uppercase">Phone</span><span className="font-black text-slate-800">{doctorProfile?.phone}</span></div>
+                        </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {activeTab === "appointments" && (
+              <div className="space-y-10 h-full flex flex-col animate-in fade-in">
+                <h2 className="text-5xl font-black text-slate-900 tracking-tighter">Queue Manager</h2>
+                <div className="flex-1 overflow-y-auto pr-6 space-y-6 max-h-[650px] custom-scrollbar">
+                  {appointments.length === 0 ? <div className="py-32 text-center text-slate-300 uppercase tracking-widest">No active requests</div> : 
+                    appointments.map((a) => (
+                      <div key={a._id} className="p-8 border border-white rounded-[3.5rem] flex items-center justify-between bg-white shadow-sm">
+                        <div className="flex items-center gap-6">
+                          <img src={a.patientId?.image ? `http://localhost:5000${a.patientId.image}` : "https://api.dicebear.com/7.x/shapes/svg?seed=" + a.patientId?.name} className="w-20 h-20 rounded-[2.2rem] object-cover" alt="" />
+                          <div>
+                            <p className="font-black text-slate-800 text-2xl tracking-tight">{a.patientId?.name}</p>
+                            <p className="text-[11px] text-slate-400 font-black uppercase tracking-widest">{new Date(a.date).toLocaleDateString()} | {a.time}</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-4">
+                          {a.status === "pending" ? (
+                            <>
+                              <button onClick={() => updateStatus(a._id, "cancel")} className="bg-rose-50 text-rose-500 px-8 py-4 rounded-[1.8rem] text-[11px] font-black uppercase">Cancel</button>
+                              <button onClick={() => updateStatus(a._id, "confirm")} className="bg-emerald-600 text-white px-8 py-4 rounded-[1.8rem] text-[11px] font-black uppercase">Confirm</button>
+                            </>
+                          ) : (
+                            <span className="text-[10px] font-black uppercase px-8 py-3.5 rounded-[1.5rem] bg-emerald-50 text-emerald-600 border border-emerald-100">{a.status}</span>
+                          )}
+                        </div>
                       </div>
-                   </div>
-                   <div className="p-10 bg-white/50 border border-white rounded-[3.5rem] shadow-sm">
-                      <p className="text-[12px] font-black text-sky-500 uppercase tracking-[0.3em] mb-8">Access Points</p>
-                      <div className="space-y-6">
-                          <div className="flex justify-between items-center"><span className="text-[11px] font-bold text-slate-400 uppercase">Email</span><span className="font-black text-slate-800">{doctorProfile?.userId?.email}</span></div>
-                          <div className="flex justify-between items-center"><span className="text-[11px] font-bold text-slate-400 uppercase">Phone</span><span className="font-black text-slate-800">{doctorProfile?.phone}</span></div>
-                          <div className="flex flex-col gap-2"><span className="text-[11px] font-bold text-slate-400 uppercase">Clinical Location</span><span className="font-black text-slate-800 text-right">{doctorProfile?.address}</span></div>
-                      </div>
-                   </div>
+                    ))
+                  }
                 </div>
               </div>
             )}
 
-            {/* AVAILABILITY TAB */}
+            {activeTab === "earnings" && (
+              <div className="space-y-12 animate-in fade-in">
+                <h2 className="text-5xl font-black text-slate-900 tracking-tighter">Revenue Portal</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="p-8 bg-amber-50 rounded-[2.5rem]"><p className="text-[10px] font-black text-amber-600 uppercase">Total Revenue</p><p className="text-3xl font-black mt-2">Rs. {totalEarnings}</p></div>
+                  <div className="p-8 bg-emerald-50 rounded-[2.5rem]"><p className="text-[10px] font-black text-emerald-600 uppercase">Paid Invoices</p><p className="text-3xl font-black mt-2">{paidAppointments.length}</p></div>
+                </div>
+                <div className="max-h-[500px] overflow-y-auto pr-6 custom-scrollbar space-y-4">
+                  {paidAppointments.map((a) => (
+                    <div key={a._id} className="p-8 bg-white border border-slate-100 rounded-[2.5rem] flex justify-between items-center shadow-sm">
+                      <div className="flex items-center gap-6"><div className="w-14 h-14 bg-sky-50 rounded-2xl flex items-center justify-center font-black">{a.patientId?.name?.charAt(0)}</div><div><p className="font-black">{a.patientId?.name}</p><p className="text-[10px] text-slate-400">{new Date(a.date).toLocaleDateString()}</p></div></div>
+                      <div className="bg-slate-50 px-8 py-3 rounded-2xl font-black">Rs. {a.fee}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {activeTab === "availability" && (
-              <div className="space-y-12 animate-in fade-in duration-700">
+              <div className="space-y-12 h-full flex flex-col animate-in fade-in">
                 <h2 className="text-5xl font-black text-slate-900 tracking-tighter">Schedule Planner</h2>
-                <div className="grid grid-cols-1 xl:grid-cols-5 gap-12">
-                  <div className="xl:col-span-2 bg-gradient-to-b from-sky-50/50 to-white border border-sky-100 p-10 rounded-[3.5rem] shadow-lg shadow-sky-900/5">
-                     <p className="text-[12px] font-black uppercase text-sky-400 tracking-[0.2em] mb-8 text-center">Define New Slots</p>
-                     <div className="space-y-4">
-                        <input type="date" value={newDay.date} onChange={e => setNewDay({...newDay, date: e.target.value})} className="w-full p-5 rounded-[1.5rem] border border-sky-100 outline-none focus:ring-4 ring-emerald-500/10 font-black text-slate-700 bg-white shadow-inner" />
-                        <input type="text" placeholder="Nepali Calendar Date" value={newDay.nepaliDate} onChange={e => setNewDay({...newDay, nepaliDate: e.target.value})} className="w-full p-5 rounded-[1.5rem] border border-sky-100 outline-none focus:ring-4 ring-emerald-500/10 font-black text-slate-700 bg-white" />
-                        <textarea placeholder="List slots: 10:00, 11:30..." value={newDay.slots} onChange={e => setNewDay({...newDay, slots: e.target.value})} className="w-full p-5 rounded-[1.5rem] border border-sky-100 outline-none focus:ring-4 ring-emerald-500/10 font-black text-slate-700 bg-white min-h-[120px]" />
-                        <button onClick={handleSaveSchedule} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-6 rounded-[2rem] font-black text-[11px] uppercase tracking-[0.2em] shadow-2xl shadow-emerald-500/30 transition-all active:scale-95 mt-4">Save Working Hours</button>
-                     </div>
+                <div className="grid grid-cols-1 xl:grid-cols-5 gap-12 flex-1 overflow-hidden">
+                  <div className="xl:col-span-2 bg-sky-50/50 border border-sky-100 p-10 rounded-[3.5rem] shadow-lg">
+                      <p className="text-[12px] font-black uppercase text-sky-400 tracking-widest mb-8 text-center">Define New Slots</p>
+                      <div className="space-y-4">
+                        <input type="date" value={newDay.date} onChange={e => setNewDay({...newDay, date: e.target.value})} className="w-full p-5 rounded-[1.5rem] border border-sky-100 outline-none font-black" />
+                        <input type="text" placeholder="Nepali Calendar Date" value={newDay.nepaliDate} onChange={e => setNewDay({...newDay, nepaliDate: e.target.value})} className="w-full p-5 rounded-[1.5rem] border border-sky-100 outline-none font-black" />
+                        <textarea placeholder="List slots: 10:00, 11:30..." value={newDay.slots} onChange={e => setNewDay({...newDay, slots: e.target.value})} className="w-full p-5 rounded-[1.5rem] border border-sky-100 outline-none font-black min-h-[120px]" />
+                        <button onClick={handleSaveSchedule} className="w-full bg-emerald-600 text-white py-6 rounded-[2rem] font-black text-[11px] uppercase tracking-widest shadow-2xl">Save Working Hours</button>
+                      </div>
                   </div>
-                  <div className="xl:col-span-3">
-                    <p className="text-[12px] font-black uppercase text-slate-400 tracking-[0.2em] mb-8">Timeline Preview</p>
-                    <div className="space-y-6 max-h-[500px] overflow-y-auto pr-6 custom-scrollbar">
+                  <div className="xl:col-span-3 h-full flex flex-col">
+                    <p className="text-[12px] font-black uppercase text-slate-400 tracking-widest mb-8">Timeline Preview</p>
+                    <div className="space-y-6 overflow-y-auto pr-6 max-h-[600px] custom-scrollbar">
                     {doctorProfile?.availability?.map((day, idx) => (
-                      <div key={idx} className="p-8 border border-sky-50 rounded-[3rem] bg-white hover:border-emerald-200 transition-all group shadow-sm hover:shadow-xl hover:shadow-sky-900/5">
+                      <div key={idx} className="p-8 border border-sky-50 rounded-[3rem] bg-white relative hover:shadow-xl transition-all group">
                         <div className="flex justify-between items-start mb-6">
                           <div>
-                              <p className="text-xl font-black text-slate-800 tracking-tight">{day.date}</p>
-                              <p className="text-[10px] text-emerald-500 font-black uppercase mt-1">{day.nepaliDate}</p>
+                              <p className="text-xl font-black text-slate-800">{day.date}</p>
+                              <p className="text-[10px] text-emerald-500 font-black uppercase">{day.nepaliDate}</p>
                           </div>
-                          <span className="bg-emerald-50 text-emerald-600 px-5 py-2 rounded-2xl text-[10px] font-black border border-emerald-100">{day.slots.length} TIME SLOTS</span>
+                          <div className="flex items-center gap-3">
+                              {/* INTEGRATED DELETE BUTTON */}
+                              <button 
+                                onClick={() => handleDeleteSchedule(day.date)} 
+                                className="text-[9px] font-black text-rose-500 bg-rose-50 hover:bg-rose-500 hover:text-white px-3 py-1.5 rounded-xl border border-rose-100 transition-all uppercase tracking-tighter"
+                              >
+                                Delete
+                              </button>
+                              <span className="bg-emerald-50 text-emerald-600 px-4 py-2 rounded-2xl text-[10px] font-black">{day.slots.length} SLOTS</span>
+                          </div>
                         </div>
                         <div className="flex flex-wrap gap-3">
                           {day.slots.map((slot, sIdx) => (
-                            <div key={sIdx} className={`text-[10px] px-5 py-2.5 rounded-xl font-black border transition-all ${slot.isBooked ? "bg-red-50 text-red-300 border-red-50" : "bg-sky-50 text-sky-600 border-sky-100 hover:scale-110"}`}>{slot.time}</div>
+                            <div key={sIdx} className={`text-[10px] px-5 py-2.5 rounded-xl font-black border ${slot.isBooked ? "bg-red-50 text-red-300" : "bg-sky-50 text-sky-600"}`}>{slot.time}</div>
                           ))}
                         </div>
                       </div>
@@ -375,93 +449,41 @@ export default function DoctorDashboard() {
               </div>
             )}
 
-            {/* APPOINTMENTS TAB */}
-            {activeTab === "appointments" && (
-              <div className="space-y-10 animate-in fade-in slide-in-from-right-12">
-                <h2 className="text-5xl font-black text-slate-900 tracking-tighter">Queue Manager</h2>
-                {appointments.length === 0 ? <div className="py-32 text-center text-slate-300 font-black uppercase tracking-[0.5em] text-xs">Waiting for requests...</div> : appointments.map((a) => (
-                  <div key={a._id} className="p-8 border border-white rounded-[3.5rem] flex items-center justify-between bg-white shadow-sm hover:shadow-2xl hover:shadow-sky-900/10 transition-all group">
-                    <div className="flex items-center gap-6">
-                      <div className="relative group-hover:scale-110 transition-transform">
-                          <img src={a.patientId?.image ? `http://localhost:5000${a.patientId.image}` : "https://api.dicebear.com/7.x/shapes/svg?seed=" + a.patientId?.name} className="w-20 h-20 rounded-[2.2rem] object-cover border-4 border-sky-50 group-hover:border-emerald-100 transition-all" alt="" />
-                          <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-4 border-white ${a.status === 'confirmed' ? 'bg-emerald-500 shadow-emerald-500/50 shadow-lg' : 'bg-sky-400 animate-pulse'}`}></div>
-                      </div>
-                      <div>
-                        <p className="font-black text-slate-800 text-2xl tracking-tight">{a.patientId?.name}</p>
-                        <div className="flex items-center gap-3 mt-1">
-                            <span className="text-[11px] text-slate-400 font-black uppercase tracking-widest">{new Date(a.date).toLocaleDateString()}</span>
-                            <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                            <span className="text-[11px] text-emerald-500 font-black uppercase tracking-widest">{a.time}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div>
-                      {a.status === "pending" ? (
-                          <button onClick={() => updateStatus(a._id, "confirm")} className="bg-emerald-600 hover:bg-emerald-500 text-white px-10 py-4 rounded-[1.8rem] text-[11px] font-black shadow-2xl shadow-emerald-500/20 active:scale-95 transition-all uppercase tracking-widest">Confirm</button>
-                      ) : (
-                          <span className="text-[10px] font-black uppercase px-8 py-3.5 rounded-[1.5rem] bg-emerald-50 text-emerald-600 border border-emerald-100 tracking-[0.2em]">{a.status}</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* NOTIFICATIONS TAB */}
             {activeTab === "notifications" && (
-              <div className="space-y-8 animate-in zoom-in-95">
+              <div className="space-y-8 h-full flex flex-col animate-in zoom-in-95">
                 <div className="flex justify-between items-center mb-12">
                   <h2 className="text-5xl font-black text-slate-900 tracking-tighter">Activity</h2>
-                  {notifications.some(n => n.isRead) && (
-                    <button onClick={clearReadNotifications} className="text-[11px] font-black text-red-400 hover:bg-red-50 px-8 py-3.5 rounded-2xl border border-red-100 transition-all uppercase">Flush History</button>
-                  )}
+                  <button onClick={clearReadNotifications} className="text-[11px] font-black text-red-400 hover:bg-red-50 px-8 py-3.5 rounded-2xl border border-red-100 uppercase">Clear All</button>
                 </div>
-                <div className="grid gap-6">
-                {notifications.length === 0 ? <p className="text-slate-300 font-black py-20 text-center uppercase tracking-widest">System quiet...</p> : 
-                  notifications.map((n) => (
-                    <div key={n._id} onClick={() => markAsRead(n)} className={`p-10 rounded-[3.5rem] border transition-all ${n.isRead ? "bg-white/30 border-slate-50 opacity-50" : "bg-white border-white shadow-xl shadow-sky-900/5 hover:scale-[1.01]"}`}>
-                      <div className="flex justify-between items-center">
-                        <div className="flex gap-6 items-center">
-                          <div className={`w-3 h-3 rounded-full ${n.isRead ? "bg-slate-200" : "bg-emerald-500 shadow-lg shadow-emerald-500/50"}`}></div>
-                          <div>
-                              <p className="text-[12px] font-black text-slate-800 uppercase tracking-widest">{n.title}</p>
-                              <p className="text-[16px] text-slate-500 mt-2 font-bold">{n.message}</p>
-                          </div>
-                        </div>
-                        {!n.isRead && <span className="bg-emerald-500 text-white px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-tighter">Live Alert</span>}
-                      </div>
+                <div className="flex-1 overflow-y-auto pr-6 space-y-4 max-h-[650px] custom-scrollbar">
+                  {notifications.map((n) => (
+                    <div key={n._id} onClick={() => markAsRead(n)} className={`p-10 rounded-[3.5rem] border ${n.isRead ? "opacity-50" : "bg-white shadow-xl"}`}>
+                      <p className="text-[12px] font-black uppercase tracking-widest">{n.title}</p>
+                      <p className="text-[16px] text-slate-500 mt-2 font-bold">{n.message}</p>
                     </div>
-                  ))
-                }
+                  ))}
                 </div>
               </div>
             )}
 
-            {/* CHAT TAB */}
             {activeTab === "chat" && (
-              <div className="flex h-[700px] gap-10 animate-in slide-in-from-left-12 duration-700">
-                <div className="w-1/3 bg-white/40 border border-white rounded-[3.5rem] overflow-hidden flex flex-col shadow-inner">
-                  <div className="p-8 bg-white/50 border-b border-sky-50 text-[12px] font-black text-sky-400 uppercase tracking-[0.3em]">Patient Directory</div>
-                  <div className="overflow-y-auto flex-1 p-4 space-y-3 custom-scrollbar">
-                      {uniquePatients.map(p => (
-                      <div key={p._id} onClick={() => setSelectedPatient(p)} className={`p-6 rounded-[2rem] cursor-pointer transition-all flex items-center gap-5 ${selectedPatient?._id === p._id ? "bg-emerald-600 text-white shadow-2xl shadow-emerald-600/30 scale-105 z-10" : "hover:bg-white text-slate-500"}`}>
-                          <div className={`w-10 h-10 rounded-[1rem] flex items-center justify-center font-black text-sm ${selectedPatient?._id === p._id ? "bg-white/20" : "bg-sky-100 text-sky-600"}`}>{p.name.charAt(0)}</div>
-                          <p className="text-[15px] font-black tracking-tight uppercase">{p.name}</p>
-                      </div>
-                      ))}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-8 h-full">
+                <aside className="md:col-span-4 h-full flex flex-col">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Patient Queue</p>
+                  <div className="overflow-y-auto pr-4 space-y-4 max-h-[700px] custom-scrollbar">
+                    {uniquePatients.map((p) => (
+                      <button key={p._id} onClick={() => setSelectedPatient(p)} className={`w-full p-6 rounded-[2.5rem] border transition-all flex items-center gap-4 ${selectedPatient?._id === p._id ? "bg-white border-emerald-500" : "bg-white/50 border-white"}`}>
+                        <div className="w-12 h-12 bg-sky-50 rounded-xl flex items-center justify-center font-black">{p.name.charAt(0)}</div>
+                        <p className="font-black text-sm">{p.name}</p>
+                      </button>
+                    ))}
                   </div>
-                </div>
-                <div className="flex-1">
-                  {selectedPatient ? <ChatBox doctorId={doctor?._id || doctor?.id} patient={selectedPatient} mainSocket={socket} /> : 
-                    <div className="h-full border-4 border-dashed border-sky-100/50 rounded-[4rem] flex flex-col items-center justify-center text-sky-200 gap-6">
-                      <div className="w-20 h-20 bg-sky-50 rounded-full flex items-center justify-center text-4xl">🗨</div>
-                      <p className="font-black text-[11px] uppercase tracking-[0.4em]">Initialize Session</p>
-                    </div>
-                  }
+                </aside>
+                <div className="md:col-span-8 h-full">
+                  {selectedPatient ? <ChatBox doctorId={doctor?._id || doctor?.id} patient={selectedPatient} mainSocket={socket} /> : <div className="h-full flex items-center justify-center opacity-20 uppercase tracking-widest font-black">Select a patient</div>}
                 </div>
               </div>
             )}
-
           </main>
         </div>
       </div>

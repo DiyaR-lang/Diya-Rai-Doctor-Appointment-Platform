@@ -44,12 +44,13 @@ const doctorSchema = new mongoose.Schema({
     unique: true
   },
 
+  // ✅ CHANGED: Set default to false so Admin must approve new doctors
   isVerified: {
     type: Boolean,
-    default: true
+    default: false
   },
 
-  // ✅ ADDED: Availability Array to support your Dashboard logic
+  // ✅ Availability Array to support your Dashboard logic
   availability: [
     {
       date: { type: String, required: true }, // Store as "YYYY/MM/DD"

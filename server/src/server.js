@@ -17,7 +17,7 @@ import doctorRoutes from "./routes/doctors.js";
 import notificationRoutes from "./routes/notifications.js";
 import paymentRoutes from "./routes/payment.js";
 import messageRoutes from "./routes/messages.js";
-
+import adminRoutes from "./routes/admin.js";
 // --- MODELS ---
 import Message from "./models/Message.js";
 
@@ -34,9 +34,8 @@ const io = new Server(server, {
     methods: ["GET", "POST"],
     credentials: true
   },
-  allowEIO3: true,
-  pingTimeout: 60000,
-  transports: ["websocket", "polling"]
+  transports: ["polling", "websocket"], // Put polling first for stability
+  allowEIO3: true
 });
 
 // ✅ Make socket available everywhere (IMPORTANT for payment controller)
@@ -82,7 +81,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/appointments", appointmentRoutes);
 app.use("/api/doctors", doctorRoutes);
 app.use("/api/notifications", notificationRoutes);
-
+app.use("/api/admin", adminRoutes);
 // ✅ Payment route (already correct, just kept here)
 app.use("/api/payment", paymentRoutes);
 

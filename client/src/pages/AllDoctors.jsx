@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { Search, ArrowLeft, Check, Zap, FileText, Printer } from "lucide-react";
-import { useSearchParams } from "react-router-dom"; // Add this for URL detection
+import { Search, ArrowLeft, Check, Zap, Printer } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 
 export default function AllDoctors() {
   const [doctors, setDoctors] = useState([]);
@@ -14,26 +14,36 @@ export default function AllDoctors() {
   const [bookingLoading, setBookingLoading] = useState(false);
   const [appointmentId, setAppointmentId] = useState(null);
   const [currentStep, setCurrentStep] = useState(2); 
-  const [paymentDetails, setPaymentDetails] = useState(null); // To store receipt data
+  const [paymentDetails, setPaymentDetails] = useState(null);
 
-  // 1. GET URL PARAMS FOR AUTO-VERIFICATION
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryPidx = searchParams.get("pidx");
 
-  // 2. AUTO-VERIFY EFFECT (This is the "Seamless" part)
+  // --- 1. AUTO-VERIFICATION LOGIC (The Fix) ---
   useEffect(() => {
     if (queryPidx) {
       const finalizeBooking = async () => {
         setBookingLoading(true);
         try {
-          // Tell backend to check Khalti and finalize the appointment record
-          const res = await axios.post("http://localhost:5000/api/payment/Verify", {
-            pidx: queryPidx
+          // Retrieve values saved before the Khalti redirect
+          const savedId = localStorage.getItem("pendingAppointmentId");
+          const savedDoc = JSON.parse(localStorage.getItem("pendingDoctor"));
+
+          const res = await axios.post("http://localhost:5000/api/payment/verify", {
+            pidx: queryPidx,
+            appointmentId: savedId
           });
 
           if (res.data.success) {
+            setSelectedDoctor(savedDoc);
             setPaymentDetails(res.data.payment);
-            setCurrentStep(6); // Automatically show receipt/Step 6
+            setCurrentStep(6); // Jump to the Receipt Step
+            
+            // Success Cleanup
+            localStorage.removeItem("pendingAppointmentId");
+            localStorage.removeItem("pendingDoctor");
+            // Clear pidx from URL so refresh doesn't trigger verification again
+            setSearchParams({}); 
           }
         } catch (err) {
           console.error("Verification failed", err);
@@ -44,8 +54,9 @@ export default function AllDoctors() {
       };
       finalizeBooking();
     }
-  }, [queryPidx]);
+  }, [queryPidx, setSearchParams]);
 
+  // --- 2. DATA FETCHING ---
   const fetchDoctors = async (filters = {}) => {
     setLoading(true);
     try {
@@ -56,6 +67,7 @@ export default function AllDoctors() {
 
   useEffect(() => { fetchDoctors(); }, []);
 
+  // --- 3. SELECTION & BOOKING ---
   const handleSelectSlot = (doc, date, slot) => {
     setSelectedDoctor(doc);
     setAppointmentDate(date);
@@ -88,8 +100,14 @@ export default function AllDoctors() {
     } finally { setBookingLoading(false); }
   };
 
+  // --- 4. KHALTI REDIRECT HANDLER ---
   const handleKhaltiPayment = async () => {
     if (!appointmentId) return alert("Session expired. Please re-book.");
+    
+    // Save critical data to localStorage before leaving the site
+    localStorage.setItem("pendingAppointmentId", appointmentId);
+    localStorage.setItem("pendingDoctor", JSON.stringify(selectedDoctor));
+
     setBookingLoading(true);
     try {
       const token = localStorage.getItem("token");
@@ -101,10 +119,10 @@ export default function AllDoctors() {
       if (res.data.success && res.data.payment_url) {
         window.location.href = res.data.payment_url;
       } else {
-        alert("Payment initiation failed at gateway.");
+        alert("Payment initiation failed.");
       }
     } catch (err) {
-      alert("Payment initiation failed. Check backend console.");
+      alert("Payment initiation failed.");
     } finally { setBookingLoading(false); }
   };
 
@@ -112,7 +130,7 @@ export default function AllDoctors() {
     <div className="min-h-screen bg-gray-50 font-sans pb-20">
       {/* 1. PROGRESS BAR */}
       <div className="bg-white border-b py-6 sticky top-0 z-30 shadow-sm">
-        <div className="max-w-6xl mx-auto flex justify-between items-center px-6 min-w-[800px]">
+        <div className="max-w-6xl mx-auto flex justify-between items-center px-6">
           {[1, 2, 3, 4, 5, 6].map((step) => {
             const labels = ["", "Department", "Doctors", "Selection", "Verify", "Payments", "Receipt"];
             return (
@@ -133,14 +151,14 @@ export default function AllDoctors() {
         {/* DOCTOR LIST (Steps 2 & 3) */}
         {currentStep <= 3 && (
           <div className="space-y-6">
-            <div className="flex gap-4 bg-white p-4 rounded border">
+            <div className="flex gap-4 bg-white p-4 rounded border shadow-sm">
               <input type="text" placeholder="Find Doctor" className="flex-1 border p-2 rounded outline-none" onChange={(e) => setSearch({...search, name: e.target.value})} />
-              <button onClick={() => fetchDoctors(search)} className="bg-red-500 text-white p-2.5 rounded hover:bg-red-600"><Search size={18}/></button>
+              <button onClick={() => fetchDoctors(search)} className="bg-red-500 text-white p-2.5 rounded hover:bg-red-600 transition"><Search size={18}/></button>
             </div>
             {doctors.map((doc) => (
-              <div key={doc._id} className="bg-white border rounded-lg flex overflow-hidden shadow-sm">
+              <div key={doc._id} className="bg-white border rounded-lg flex overflow-hidden shadow-sm hover:shadow-md transition">
                 <div className="w-1/3 p-6 bg-gray-50 border-r flex flex-col items-center text-center">
-                  <img src={doc.image ? `http://localhost:5000${doc.image}` : null} className="w-24 h-24 rounded-full border-4 border-white shadow mb-4 object-cover" alt="" />
+                  <img src={doc.image ? `http://localhost:5000${doc.image}` : "https://via.placeholder.com/150"} className="w-24 h-24 rounded-full border-4 border-white shadow mb-4 object-cover" alt="" />
                   <h2 className="text-lg font-bold">Dr. {doc.userId?.name}</h2>
                   <p className="text-xs text-red-500 font-bold uppercase">{doc.specialty}</p>
                 </div>
@@ -153,7 +171,7 @@ export default function AllDoctors() {
                           <td className="py-4 flex flex-wrap gap-2">
                             {avail.slots?.map((slot, sIdx) => (
                               <button key={sIdx} onClick={() => handleSelectSlot(doc, avail.date, slot)} 
-                                className="bg-gray-700 text-white px-3 py-1 rounded text-xs hover:bg-red-500">
+                                className="bg-gray-700 text-white px-3 py-1 rounded text-xs hover:bg-red-500 transition">
                                 {typeof slot === 'object' ? slot.time : slot}
                               </button>
                             ))}
@@ -168,16 +186,17 @@ export default function AllDoctors() {
           </div>
         )}
 
-        {/* STEP 4: VERIFY PATIENT */}
+        {/* STEP 4: VERIFY PATIENT INFO */}
         {currentStep === 4 && (
-          <div className="max-w-5xl mx-auto flex flex-col lg:flex-row gap-8">
+          <div className="max-w-5xl mx-auto flex flex-col lg:flex-row gap-8 animate-in slide-in-from-bottom-4">
             <div className="flex-1 bg-white p-8 rounded-xl border shadow-sm">
               <button onClick={() => setCurrentStep(2)} className="flex items-center text-gray-400 hover:text-red-500 mb-6 font-bold text-[10px] uppercase">
                 <ArrowLeft size={16} className="mr-2" /> Change Selection
               </button>
-              <h3 className="text-xl font-bold mb-6">Verify Patient Information</h3>
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="col-span-2"><label className="text-[10px] font-black text-gray-400 uppercase">Reason/Note</label><textarea value={note} onChange={(e) => setNote(e.target.value)} rows="4" className="w-full border rounded-lg p-3 bg-gray-50" placeholder="Symptoms..."></textarea></div>
+              <h3 className="text-xl font-bold mb-6">Verify Information</h3>
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-gray-400 uppercase">Symptoms / Notes</label>
+                <textarea value={note} onChange={(e) => setNote(e.target.value)} rows="4" className="w-full border rounded-lg p-3 bg-gray-50 outline-none focus:border-red-500 transition" placeholder="Tell the doctor what's wrong..."></textarea>
               </div>
             </div>
             <div className="lg:w-80 bg-white border rounded-xl p-6 h-fit shadow-sm">
@@ -185,90 +204,61 @@ export default function AllDoctors() {
                 <div className="flex justify-between text-sm py-2"><span>Date:</span><span className="font-bold">{appointmentDate}</span></div>
                 <div className="flex justify-between text-sm py-2"><span>Time:</span><span className="font-bold">{timeSlot}</span></div>
                 <div className="flex justify-between text-lg font-black pt-4 border-t mt-4"><span>Total Fee</span><span className="text-red-600">Rs. {selectedDoctor?.fee || 500}</span></div>
-                <button onClick={bookAppointment} disabled={bookingLoading} className="w-full bg-red-600 text-white py-4 rounded-xl font-black uppercase text-[10px] mt-6 tracking-widest">
+                <button onClick={bookAppointment} disabled={bookingLoading} className="w-full bg-red-600 text-white py-4 rounded-xl font-black uppercase text-[10px] mt-6 tracking-widest hover:bg-red-700 transition">
                   {bookingLoading ? "Processing..." : "Confirm & Pay"}
                 </button>
             </div>
           </div>
         )}
 
-        {/* STEP 5: PAYMENTS */}
+        {/* STEP 5: PAYMENT GATEWAY */}
         {currentStep === 5 && (
-          <div className="flex flex-col lg:flex-row gap-8 animate-in fade-in">
+          <div className="max-w-md mx-auto bg-white p-10 rounded-2xl border shadow-xl text-center animate-in zoom-in-95">
              {bookingLoading ? (
-               <div className="w-full text-center py-20">
-                 <div className="animate-spin h-8 w-8 border-4 border-red-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-                 <p className="text-gray-500 font-bold uppercase text-[10px]">Processing Payment Verification...</p>
+               <div className="py-10">
+                 <div className="animate-spin h-10 w-10 border-4 border-red-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+                 <p className="text-gray-500 font-bold uppercase text-[10px]">Processing...</p>
                </div>
              ) : (
                <>
-                <div className="lg:w-[450px] bg-white p-8 rounded-xl border shadow-sm">
-                  <div className="flex gap-4 border-b pb-6 mb-6">
-                    <img src={selectedDoctor?.image ? `http://localhost:5000${selectedDoctor.image}` : null} className="w-20 h-20 rounded-lg object-cover" alt="" />
-                    <div>
-                      <h2 className="text-lg font-bold">Dr. {selectedDoctor?.userId?.name}</h2>
-                      <p className="text-[10px] text-teal-600 font-bold uppercase flex items-center gap-1"><Zap size={10}/> {selectedDoctor?.specialty}</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 bg-gray-50 rounded-lg border divide-x divide-y text-center">
-                    <div className="p-4"><p className="text-[9px] text-red-500 font-bold uppercase">Date</p><p className="text-xs font-bold">{appointmentDate}</p></div>
-                    <div className="p-4"><p className="text-[9px] text-red-500 font-bold uppercase">Time</p><p className="text-xs font-bold">{timeSlot}</p></div>
-                  </div>
-                </div>
-
-                <div className="flex-1 bg-white p-8 rounded-xl border shadow-sm">
-                   <p className="text-[10px] font-bold text-gray-400 uppercase text-center">Payment Amount</p>
-                   <p className="text-3xl font-black text-center text-gray-800 mb-8">Rs {selectedDoctor?.fee || 500}</p>
-                   <div className="grid grid-cols-4 gap-4">
-                      <div onClick={handleKhaltiPayment} className="border-2 rounded-xl p-4 flex flex-col items-center cursor-pointer hover:border-purple-600 transition group">
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/e/ee/Khalti_Digital_Wallet_Logo.png" className="h-6 object-contain mb-2" alt="Khalti" />
-                        <div className="w-3 h-3 rounded-full border-2 group-hover:bg-purple-600 transition"></div>
-                      </div>
-                   </div>
+                <Zap className="mx-auto text-yellow-500 mb-4" size={40} />
+                <h2 className="text-2xl font-black mb-8">Secure Checkout</h2>
+                <div onClick={handleKhaltiPayment} className="border-2 rounded-2xl p-6 flex flex-col items-center cursor-pointer hover:border-purple-600 hover:bg-purple-50 transition group">
+                  <img src="https://upload.wikimedia.org/wikipedia/commons/e/ee/Khalti_Digital_Wallet_Logo.png" className="h-8 object-contain mb-4" alt="Khalti" />
+                  <span className="text-xs font-bold text-purple-700 uppercase">Pay Rs. {selectedDoctor?.fee || 500}</span>
                 </div>
                </>
              )}
           </div>
         )}
 
-        {/* STEP 6: RECEIPT (The Final Step) */}
+        {/* STEP 6: FINAL RECEIPT */}
         {currentStep === 6 && (
           <div className="max-w-2xl mx-auto bg-white border rounded-xl overflow-hidden shadow-2xl animate-in zoom-in duration-300">
-             <div className="bg-red-600 p-8 text-white text-center">
+             <div className="bg-green-600 p-8 text-white text-center">
                 <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Check size={32} className="text-white" />
                 </div>
-                <h2 className="text-2xl font-black uppercase tracking-tighter">Payment Successful</h2>
-                <p className="text-sm opacity-80 mt-1">Your appointment with Dr. {selectedDoctor?.userId?.name} is confirmed.</p>
+                <h2 className="text-2xl font-black uppercase tracking-tighter">Booking Confirmed</h2>
+                <p className="text-sm opacity-80 mt-1">Dr. {selectedDoctor?.userId?.name} is expecting you.</p>
              </div>
-             
              <div className="p-8">
                 <div className="flex justify-between items-center border-b pb-6 mb-6">
                    <div>
                      <p className="text-[10px] font-bold text-gray-400 uppercase">Transaction ID</p>
-                     <p className="font-mono text-sm">{paymentDetails?.transactionId || queryPidx}</p>
+                     <p className="font-mono text-sm">{paymentDetails?.transactionId || "N/A"}</p>
                    </div>
                    <div className="text-right">
                      <p className="text-[10px] font-bold text-gray-400 uppercase">Date</p>
                      <p className="text-sm font-bold">{new Date().toLocaleDateString()}</p>
                    </div>
                 </div>
-
                 <div className="space-y-4 mb-8">
-                   <div className="flex justify-between text-sm">
-                     <span className="text-gray-500">Consultation Fee</span>
-                     <span className="font-bold">Rs. {paymentDetails?.amount || selectedDoctor?.fee}</span>
-                   </div>
-                   <div className="flex justify-between text-sm">
-                     <span className="text-gray-500">Platform Charge</span>
-                     <span className="font-bold text-green-600">FREE</span>
-                   </div>
                    <div className="flex justify-between text-xl border-t pt-4 font-black">
                      <span>Total Paid</span>
                      <span className="text-red-600">Rs. {paymentDetails?.amount || selectedDoctor?.fee}</span>
                    </div>
                 </div>
-
                 <div className="flex gap-4">
                   <button onClick={() => window.print()} className="flex-1 bg-gray-800 text-white py-4 rounded-xl font-bold uppercase text-[10px] flex items-center justify-center gap-2">
                     <Printer size={16}/> Print Receipt
