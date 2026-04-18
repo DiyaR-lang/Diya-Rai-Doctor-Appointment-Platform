@@ -5,10 +5,7 @@ import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-/**
- * HELPER FUNCTION: Create & Send Real-time Notification
- * Call this function from appointments.js or messages.js
- */
+
 export const createNotification = async (userId, title, message, type) => {
   try {
     // 1. Save to MongoDB so it persists

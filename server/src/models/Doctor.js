@@ -38,10 +38,12 @@ const doctorSchema = new mongoose.Schema({
     type: String 
   }, 
 
+ 
   nmcId: {
     type: String,
     required: true,
-    unique: true
+    unique: true, // This is critical
+    trim: true
   },
 
   // ✅ CHANGED: Set default to false so Admin must approve new doctors

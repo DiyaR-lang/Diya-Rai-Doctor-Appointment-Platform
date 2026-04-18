@@ -14,6 +14,7 @@ export default function Register() {
     bio: "",
     phone: "",
     address: "",
+    nmcId: "", // Added to match your Doctor model
   });
 
   const [imageFile, setImageFile] = useState(null);
@@ -113,40 +114,43 @@ export default function Register() {
             <label className={labelClass}>Select Role</label>
             <select name="role" value={form.role} onChange={handleChange} required className={inputClass}>
               <option value="">Choose your profile...</option>
-              <option value="admin">Admin</option>
+              {/* Removed Admin Role */}
               <option value="doctor">Doctor</option>
               <option value="patient">Patient</option>
             </select>
           </div>
 
-          {/* Doctor-specific fields with a light blue background to distinguish section */}
+          {/* Doctor-specific fields */}
           {form.role === "doctor" && (
             <div className="bg-blue-50 p-4 rounded-xl space-y-4 border border-blue-100 animate-in fade-in slide-in-from-top-4 duration-300">
               <h3 className="font-semibold text-blue-800 text-sm uppercase tracking-wider">Professional Details</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input name="nmcId" placeholder="NMC ID Number" onChange={handleChange} required className={inputClass} />
                 <input name="specialty" placeholder="Specialty (e.g. Cardiology)" onChange={handleChange} required className={inputClass} />
-                <input name="experience" type="number" placeholder="Experience (Years)" onChange={handleChange} required className={inputClass} />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <input name="fee" type="number" placeholder="Consultation Fee ($)" onChange={handleChange} required className={inputClass} />
-                <input name="phone" placeholder="Phone Number" onChange={handleChange} required className={inputClass} />
+                <input name="experience" type="number" placeholder="Experience (Years)" onChange={handleChange} required className={inputClass} />
+                <input name="fee" type="number" placeholder="Consultation Fee (Rs.)" onChange={handleChange} required className={inputClass} />
               </div>
 
-              <input name="address" placeholder="Clinic/Hospital Address" onChange={handleChange} required className={inputClass} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input name="phone" placeholder="Phone Number" onChange={handleChange} required className={inputClass} />
+                <input name="address" placeholder="Clinic Address" onChange={handleChange} required className={inputClass} />
+              </div>
+
               <textarea name="bio" placeholder="Tell patients about yourself..." onChange={handleChange} rows="2" className={inputClass} />
               
               <div>
-                <label className={labelClass}>Profile Image</label>
+                <label className={labelClass}>Medical License / Profile Image</label>
                 <input type="file" accept="image/*" onChange={handleFileChange} required className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700" />
               </div>
             </div>
-            
           )}
 
-          {/* Optional profile image for admin/patient */}
-          {(form.role === "admin" || form.role === "patient") && (
+          {/* Optional profile image for patient */}
+          {form.role === "patient" && (
             <div>
               <label className={labelClass}>Profile Image (Optional)</label>
               <input type="file" accept="image/*" onChange={handleFileChange} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-200 file:text-gray-700 hover:file:bg-gray-300" />

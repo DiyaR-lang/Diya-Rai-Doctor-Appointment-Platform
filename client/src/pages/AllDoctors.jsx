@@ -19,13 +19,11 @@ export default function AllDoctors() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryPidx = searchParams.get("pidx");
 
-  // --- 1. AUTO-VERIFICATION LOGIC (The Fix) ---
   useEffect(() => {
     if (queryPidx) {
       const finalizeBooking = async () => {
         setBookingLoading(true);
         try {
-          // Retrieve values saved before the Khalti redirect
           const savedId = localStorage.getItem("pendingAppointmentId");
           const savedDoc = JSON.parse(localStorage.getItem("pendingDoctor"));
 
@@ -37,12 +35,9 @@ export default function AllDoctors() {
           if (res.data.success) {
             setSelectedDoctor(savedDoc);
             setPaymentDetails(res.data.payment);
-            setCurrentStep(6); // Jump to the Receipt Step
-            
-            // Success Cleanup
+            setCurrentStep(6);
             localStorage.removeItem("pendingAppointmentId");
             localStorage.removeItem("pendingDoctor");
-            // Clear pidx from URL so refresh doesn't trigger verification again
             setSearchParams({}); 
           }
         } catch (err) {
@@ -56,18 +51,20 @@ export default function AllDoctors() {
     }
   }, [queryPidx, setSearchParams]);
 
-  // --- 2. DATA FETCHING ---
   const fetchDoctors = async (filters = {}) => {
     setLoading(true);
     try {
       const res = await axios.post("http://localhost:5000/api/doctors/search", filters);
       setDoctors(res.data);
-    } catch (err) { console.error(err); } finally { setLoading(false); }
+    } catch (err) { 
+        console.error(err); 
+    } finally { 
+        setLoading(false); 
+    }
   };
 
   useEffect(() => { fetchDoctors(); }, []);
 
-  // --- 3. SELECTION & BOOKING ---
   const handleSelectSlot = (doc, date, slot) => {
     setSelectedDoctor(doc);
     setAppointmentDate(date);
@@ -100,11 +97,8 @@ export default function AllDoctors() {
     } finally { setBookingLoading(false); }
   };
 
-  // --- 4. KHALTI REDIRECT HANDLER ---
   const handleKhaltiPayment = async () => {
     if (!appointmentId) return alert("Session expired. Please re-book.");
-    
-    // Save critical data to localStorage before leaving the site
     localStorage.setItem("pendingAppointmentId", appointmentId);
     localStorage.setItem("pendingDoctor", JSON.stringify(selectedDoctor));
 
@@ -128,7 +122,6 @@ export default function AllDoctors() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans pb-20">
-      {/* 1. PROGRESS BAR */}
       <div className="bg-white border-b py-6 sticky top-0 z-30 shadow-sm">
         <div className="max-w-6xl mx-auto flex justify-between items-center px-6">
           {[1, 2, 3, 4, 5, 6].map((step) => {
@@ -148,14 +141,17 @@ export default function AllDoctors() {
       </div>
 
       <div className="max-w-7xl mx-auto p-6">
-        {/* DOCTOR LIST (Steps 2 & 3) */}
         {currentStep <= 3 && (
           <div className="space-y-6">
             <div className="flex gap-4 bg-white p-4 rounded border shadow-sm">
               <input type="text" placeholder="Find Doctor" className="flex-1 border p-2 rounded outline-none" onChange={(e) => setSearch({...search, name: e.target.value})} />
               <button onClick={() => fetchDoctors(search)} className="bg-red-500 text-white p-2.5 rounded hover:bg-red-600 transition"><Search size={18}/></button>
             </div>
-            {doctors.map((doc) => (
+
+            {/* --- UPDATED: ONLY MAP OVER VERIFIED DOCTORS --- */}
+            {doctors
+              .filter((doc) => doc.isVerified === true) 
+              .map((doc) => (
               <div key={doc._id} className="bg-white border rounded-lg flex overflow-hidden shadow-sm hover:shadow-md transition">
                 <div className="w-1/3 p-6 bg-gray-50 border-r flex flex-col items-center text-center">
                   <img src={doc.image ? `http://localhost:5000${doc.image}` : "https://via.placeholder.com/150"} className="w-24 h-24 rounded-full border-4 border-white shadow mb-4 object-cover" alt="" />
@@ -183,6 +179,13 @@ export default function AllDoctors() {
                 </div>
               </div>
             ))}
+            
+            {/* Show message if no verified doctors exist */}
+            {doctors.filter(d => d.isVerified).length === 0 && !loading && (
+                <div className="text-center py-20 bg-white border border-dashed rounded-xl">
+                    <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">No verified doctors available at the moment.</p>
+                </div>
+            )}
           </div>
         )}
 

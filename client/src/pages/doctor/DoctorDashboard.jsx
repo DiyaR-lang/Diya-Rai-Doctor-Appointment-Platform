@@ -110,7 +110,6 @@ export default function DoctorDashboard() {
     }
   };
 
-  // NEW: DELETE INTEGRATION
   const handleDeleteSchedule = async (dateToDelete) => {
     if (!window.confirm(`Are you sure you want to delete the schedule for ${dateToDelete}?`)) return;
     try {
@@ -118,7 +117,7 @@ export default function DoctorDashboard() {
       await axios.delete(`http://localhost:5000/api/doctors/availability/${encodedDate}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      fetchInitialData(); // Refresh UI
+      fetchInitialData(); 
     } catch (err) {
       console.error("Delete Error:", err);
       alert("Failed to delete schedule.");
@@ -158,7 +157,6 @@ export default function DoctorDashboard() {
     }
   };
 
-  // --- ChatBox Component ---
   function ChatBox({ doctorId, patient, mainSocket }) {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState("");
@@ -210,39 +208,37 @@ export default function DoctorDashboard() {
     };
 
     return (
-      <div className="flex flex-col h-full bg-white/70 backdrop-blur-3xl border border-white/40 rounded-[3rem] overflow-hidden shadow-2xl">
-        <div className="p-7 bg-gradient-to-br from-emerald-600 via-emerald-500 to-sky-500 text-white flex justify-between items-center">
+      <div className="flex flex-col h-[700px] bg-white border border-slate-100 rounded-[3rem] overflow-hidden shadow-2xl">
+        <div className="p-7 bg-slate-900 text-white flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-white/20 backdrop-blur-xl rounded-[1.2rem] flex items-center justify-center font-bold text-2xl border border-white/30 shadow-inner">
+            <div className="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center font-bold text-xl shadow-lg shadow-emerald-500/20">
               {patient?.name?.charAt(0)}
             </div>
             <div>
-               <h3 className="font-extrabold text-xl tracking-tight">{patient?.name}</h3>
-               <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
-                  <p className="text-[10px] opacity-90 font-bold uppercase tracking-[0.1em]">Patient Online</p>
-               </div>
+               <h3 className="font-bold text-lg leading-tight">{patient?.name}</h3>
+               <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">Active Consultation</p>
             </div>
           </div>
-          <div className="flex gap-3">
-            <button onClick={initiateVideoCall} className="text-[10px] font-black bg-white text-emerald-600 px-6 py-3 rounded-2xl hover:bg-sky-50 transition-all shadow-xl shadow-emerald-900/20 active:scale-95">VIDEO CONSULT</button>
-            <button onClick={() => fileInputRef.current.click()} className="text-[10px] font-black bg-white/20 hover:bg-white/30 px-6 py-3 rounded-2xl transition-all border border-white/30 backdrop-blur-md">FILE</button>
+          <div className="flex gap-2">
+            <button onClick={initiateVideoCall} className="bg-white/10 hover:bg-white/20 p-3 rounded-xl transition-all"><span className="text-xl">📹</span></button>
+            <button onClick={() => fileInputRef.current.click()} className="bg-white/10 hover:bg-white/20 p-3 rounded-xl transition-all"><span className="text-xl">📎</span></button>
           </div>
           <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
         </div>
-        <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-white/30 custom-scrollbar max-h-[600px]">
+        <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-slate-50/50 custom-scrollbar">
           {messages.map((msg, i) => {
             const isImage = msg.message.match(/\.(jpeg|jpg|gif|png|jfif|webp)$/i);
             const isVideoCall = msg.messageType === "video_call";
+            const isMe = msg.senderId === doctorId;
             return (
-              <div key={i} className={`flex ${msg.senderId === doctorId ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[75%] p-5 rounded-[2rem] shadow-sm relative ${msg.senderId === doctorId ? "bg-emerald-600 text-white rounded-tr-none" : "bg-white/80 backdrop-blur-md border border-sky-100 text-slate-700 rounded-tl-none shadow-md"}`}>
+              <div key={i} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                <div className={`max-w-[80%] p-4 rounded-3xl shadow-sm ${isMe ? "bg-emerald-600 text-white rounded-tr-none" : "bg-white text-slate-700 rounded-tl-none border border-slate-100"}`}>
                   {isVideoCall ? (
-                    <button onClick={() => window.open(`/video-call/${msg.message}`, "_blank")} className="bg-emerald-50 text-emerald-600 px-6 py-3 rounded-xl font-black text-[10px] hover:bg-emerald-100 transition-all">JOIN CALL SESSION</button>
+                    <button onClick={() => window.open(`/video-call/${msg.message}`, "_blank")} className="bg-white/20 text-white px-4 py-2 rounded-xl text-xs font-bold">JOIN VIDEO CALL</button>
                   ) : isImage ? (
-                    <img src={msg.message} className="rounded-2xl max-h-72 object-cover border-4 border-white" alt="" />
+                    <img src={msg.message} className="rounded-xl max-h-60" alt="" />
                   ) : (
-                    <p className="text-[15px] leading-relaxed font-semibold">{msg.message}</p>
+                    <p className="text-sm font-medium">{msg.message}</p>
                   )}
                 </div>
               </div>
@@ -250,152 +246,171 @@ export default function DoctorDashboard() {
           })}
           <div ref={scrollRef} />
         </div>
-        <div className="p-6 bg-white/80 backdrop-blur-xl border-t border-sky-50 flex gap-4">
-          <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSend()} placeholder="Consult with patient..." className="flex-1 bg-sky-50/50 border border-sky-100/50 rounded-2xl px-6 py-4 outline-none focus:ring-4 ring-emerald-500/10 transition-all font-bold text-slate-700 placeholder:text-slate-300" />
-          <button onClick={() => handleSend()} className="bg-gradient-to-tr from-emerald-600 to-emerald-400 hover:from-emerald-500 hover:to-emerald-300 text-white px-10 rounded-2xl font-black text-xs transition-all shadow-xl shadow-emerald-500/20 active:scale-95 uppercase">Send</button>
+        <div className="p-5 bg-white border-t border-slate-100 flex gap-3">
+          <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSend()} placeholder="Type your message..." className="flex-1 bg-slate-100 rounded-2xl px-5 outline-none font-medium text-slate-700" />
+          <button onClick={() => handleSend()} className="bg-emerald-500 text-white p-4 rounded-2xl font-bold shadow-lg shadow-emerald-500/30">➤</button>
         </div>
       </div>
     );
   }
 
   if (loading) return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-white">
-        <div className="w-16 h-16 relative">
-            <div className="absolute inset-0 border-4 border-sky-100 rounded-full"></div>
-            <div className="absolute inset-0 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-        </div>
-        <p className="mt-6 font-black text-sky-900/30 tracking-[0.3em] text-[10px] uppercase">Accessing Secure Data</p>
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#F0F4F8] text-slate-900 font-sans" style={{ backgroundImage: "radial-gradient(at 0% 0%, hsla(199,100%,93%,1) 0, transparent 50%), radial-gradient(at 100% 100%, hsla(152,81%,92%,1) 0, transparent 50%)", backgroundAttachment: "fixed" }}>
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans selection:bg-emerald-100 selection:text-emerald-900">
       <style dangerouslySetInnerHTML={{ __html: `
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #E2E8F0; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #CBD5E1; }
       `}} />
 
-      <div className="max-w-[1600px] mx-auto p-4 md:p-12">
+      <div className="max-w-[1500px] mx-auto p-6 md:p-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          
           {/* Sidebar */}
           <aside className="lg:col-span-3 space-y-6">
-            <div className="bg-white/60 backdrop-blur-2xl border border-white rounded-[3.5rem] p-10 text-center shadow-2xl shadow-sky-900/5">
-              <div className="relative inline-block group">
-                  <div className="absolute inset-0 bg-emerald-400 rounded-[2.5rem] blur-2xl opacity-20 group-hover:opacity-40 transition-opacity"></div>
-                  <img src={getProfileImage()} className="relative w-32 h-32 rounded-[2.5rem] mx-auto object-cover mb-6 border-4 border-white shadow-xl" alt="Doctor" />
-              </div>
-              <h3 className="font-black text-2xl text-slate-900 tracking-tight">{doctorProfile?.userId?.name || doctor?.name}</h3>
-              <p className="text-[11px] text-emerald-600 font-black uppercase tracking-[0.25em] mt-3 bg-emerald-50/50 inline-block px-6 py-2 rounded-full border border-emerald-100">{doctorProfile?.specialty || "Practitioner"}</p>
+            <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 text-center shadow-xl shadow-slate-200/50 relative overflow-hidden">
+                {/* Visual Accent */}
+                <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-br from-emerald-500 to-sky-500 opacity-10"></div>
+                
+                <div className="relative pt-4">
+                    <div className="relative inline-block">
+                        <img src={getProfileImage()} className="w-28 h-28 rounded-full mx-auto object-cover border-4 border-white shadow-2xl" alt="Doctor" />
+                        {doctorProfile?.isVerified && (
+                             <div className="absolute bottom-1 right-1 bg-emerald-500 text-white w-7 h-7 rounded-full border-2 border-white flex items-center justify-center text-[10px] shadow-lg">✓</div>
+                        )}
+                    </div>
+                    <h3 className="font-black text-xl text-slate-800 mt-5 tracking-tight">{doctorProfile?.userId?.name || doctor?.name}</h3>
+                    <p className="text-[10px] text-emerald-600 font-black uppercase tracking-[0.2em] mt-2 bg-emerald-50 inline-block px-4 py-1.5 rounded-full">{doctorProfile?.specialty || "Practitioner"}</p>
+                </div>
             </div>
 
-            <nav className="bg-white/40 backdrop-blur-2xl border border-white rounded-[3rem] overflow-hidden shadow-xl shadow-sky-900/5">
+            <nav className="bg-white border border-slate-200 rounded-[2.5rem] p-3 shadow-xl shadow-slate-200/50">
               {[
-                { id: "profile", label: "Dashboard", icon: "❖" },
-                { id: "availability", label: "My Timing", icon: "⏲" },
-                { id: "appointments", label: "Patient List", icon: "☷" },
-                { id: "earnings", label: "Earnings", icon: "💰" },
-                { id: "notifications", label: "System Alerts", icon: "⚡", badge: unreadCount },
-                { id: "chat", label: "Consultation", icon: "◉" }
+                { id: "profile", label: "Overview", icon: "📊" },
+                { id: "availability", label: "My Timing", icon: "🕒" },
+                { id: "appointments", label: "Patients", icon: "👥" },
+                { id: "earnings", label: "Revenue", icon: "💳" },
+                { id: "notifications", label: "Alerts", icon: "🔔", badge: unreadCount },
+                { id: "chat", label: "Consult", icon: "💬" }
               ].map((t) => (
-                <button key={t.id} onClick={() => setActiveTab(t.id)} className={`w-full flex items-center justify-between px-10 py-6 text-sm font-black transition-all duration-500 ${activeTab === t.id ? "bg-white text-emerald-600 shadow-xl shadow-emerald-900/5 scale-[1.02] z-10" : "text-slate-400 hover:text-sky-600 hover:bg-white/50"}`}>
-                  <span className="flex items-center gap-5 text-xl"><span>{t.icon}</span> <span className="text-[13px] tracking-wide uppercase">{t.label}</span></span>
-                  {t.badge > 0 && <span className="bg-sky-500 text-white text-[10px] px-3 py-1 rounded-xl shadow-lg shadow-sky-500/30">{t.badge}</span>}
+                <button 
+                  key={t.id} 
+                  onClick={() => setActiveTab(t.id)} 
+                  className={`w-full flex items-center justify-between px-6 py-4 rounded-2xl transition-all duration-300 mb-1 ${
+                    activeTab === t.id 
+                    ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20" 
+                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                >
+                  <span className="flex items-center gap-4">
+                    <span className="text-xl">{t.icon}</span> 
+                    <span className="text-sm font-bold tracking-tight">{t.label}</span>
+                  </span>
+                  {t.badge > 0 && (
+                    <span className="bg-rose-500 text-white text-[10px] px-2 py-0.5 rounded-lg font-black">{t.badge}</span>
+                  )}
                 </button>
               ))}
             </nav>
           </aside>
 
-          {/* Main Content Area */}
-          <main className="lg:col-span-9 bg-white/70 backdrop-blur-3xl border border-white rounded-[4rem] p-10 md:p-16 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.05)] min-h-[850px] relative overflow-hidden">
+          {/* Main Content */}
+          <main className="lg:col-span-9 bg-white border border-slate-200 rounded-[3rem] p-8 md:p-12 shadow-2xl shadow-slate-200/60 min-h-[800px]">
             
             {activeTab === "profile" && (
-              <>
-                <div className="flex gap-6 mb-16 overflow-x-auto pb-4 custom-scrollbar">
-                    <div className="flex-1 min-w-[200px] p-8 bg-gradient-to-br from-sky-500 to-sky-600 rounded-[2.5rem] text-white shadow-xl">
-                        <p className="text-[10px] font-black uppercase tracking-widest opacity-70">Active Schedule</p>
-                        <p className="text-4xl font-black mt-2">{appointments.filter(a => a.status === 'confirmed').length}</p>
+              <div className="animate-in fade-in duration-700">
+                {/* Verification Hero Card */}
+                <div className={`mb-10 p-8 rounded-[2rem] flex items-center justify-between transition-all ${
+                  doctorProfile?.isVerified 
+                  ? "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-xl shadow-emerald-500/20" 
+                  : "bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-xl shadow-amber-500/20"
+                }`}>
+                  <div className="flex items-center gap-6">
+                    <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-3xl">
+                      {doctorProfile?.isVerified ? "🛡️" : "⌛"}
                     </div>
-                    <div className="flex-1 min-w-[200px] p-8 bg-white border border-emerald-100 rounded-[2.5rem] shadow-xl">
+                    <div>
+                      <h3 className="text-2xl font-black tracking-tight leading-none">
+                        {doctorProfile?.isVerified ? "Verified Account" : "Review in Progress"}
+                      </h3>
+                      <p className="text-white/80 text-xs font-bold uppercase tracking-widest mt-2">
+                        {doctorProfile?.isVerified ? "Your medical profile is officially active" : "Our admins are currently checking your license"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Stats Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                    <div className="p-7 bg-slate-50 border border-slate-100 rounded-[2rem] hover:scale-[1.02] transition-transform">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Visits</p>
+                        <p className="text-4xl font-black mt-2 text-slate-800">{appointments.length}</p>
+                    </div>
+                    <div className="p-7 bg-slate-50 border border-slate-100 rounded-[2rem] hover:scale-[1.02] transition-transform">
                         <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Unread Alerts</p>
                         <p className="text-4xl font-black mt-2 text-slate-800">{unreadCount}</p>
                     </div>
-                    <div onClick={() => setActiveTab("earnings")} className="flex-1 min-w-[200px] p-8 bg-white border border-sky-100 rounded-[2.5rem] shadow-xl cursor-pointer">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-sky-500">Confirmed Earnings</p>
-                        <p className="text-4xl font-black mt-2 text-slate-800">Rs. {totalEarnings}</p>
+                    <div className="p-7 bg-slate-900 rounded-[2rem] text-white hover:scale-[1.02] transition-transform shadow-xl shadow-slate-900/20">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-white/50">Revenue</p>
+                        <p className="text-4xl font-black mt-2 tracking-tighter">Rs. {totalEarnings}</p>
                     </div>
                 </div>
 
-                <div className="animate-in fade-in slide-in-from-bottom-8 duration-1000">
-                  <div className="mb-12">
-                    <h2 className="text-5xl font-black text-slate-900 tracking-tighter">Medical Records</h2>
-                    <div className="h-1.5 w-24 bg-gradient-to-r from-emerald-500 to-sky-500 rounded-full mt-4"></div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                    <div className="p-10 bg-white/50 border border-white rounded-[3.5rem] shadow-sm">
-                        <p className="text-[12px] font-black text-emerald-500 uppercase tracking-[0.3em] mb-8">Personal Credentials</p>
-                        <div className="space-y-6">
-                            <div className="flex justify-between items-center"><span className="text-[11px] font-bold text-slate-400 uppercase">Doctor Name</span><span className="font-black text-slate-800">{doctorProfile?.userId?.name}</span></div>
-                            <div className="flex justify-between items-center"><span className="text-[11px] font-bold text-slate-400 uppercase">NMC License</span><span className="font-black text-slate-800">{doctorProfile?.nmcId}</span></div>
-                            <div className="flex justify-between items-center"><span className="text-[11px] font-bold text-slate-400 uppercase">Field</span><span className="font-black text-emerald-600 bg-emerald-50 px-4 py-1 rounded-xl">{doctorProfile?.specialty}</span></div>
-                        </div>
-                    </div>
-                    <div className="p-10 bg-white/50 border border-white rounded-[3.5rem] shadow-sm">
-                        <p className="text-[12px] font-black text-sky-500 uppercase tracking-[0.3em] mb-8">Access Points</p>
-                        <div className="space-y-6">
-                            <div className="flex justify-between items-center"><span className="text-[11px] font-bold text-slate-400 uppercase">Email</span><span className="font-black text-slate-800">{doctorProfile?.userId?.email}</span></div>
-                            <div className="flex justify-between items-center"><span className="text-[11px] font-bold text-slate-400 uppercase">Phone</span><span className="font-black text-slate-800">{doctorProfile?.phone}</span></div>
-                        </div>
+                {/* Information Section */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-black uppercase tracking-widest text-slate-400 px-2">Medical Profile</h4>
+                    <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100 space-y-4">
+                        <div className="flex justify-between border-b border-slate-100 pb-3"><span className="text-xs font-bold text-slate-500">Full Name</span><span className="text-sm font-black">{doctorProfile?.userId?.name}</span></div>
+                        <div className="flex justify-between border-b border-slate-100 pb-3"><span className="text-xs font-bold text-slate-500">License ID</span><span className="text-sm font-black text-emerald-600">{doctorProfile?.nmcId}</span></div>
+                        <div className="flex justify-between"><span className="text-xs font-bold text-slate-500">Field</span><span className="text-sm font-black uppercase">{doctorProfile?.specialty}</span></div>
                     </div>
                   </div>
-                </div>
-              </>
-            )}
-
-            {activeTab === "appointments" && (
-              <div className="space-y-10 h-full flex flex-col animate-in fade-in">
-                <h2 className="text-5xl font-black text-slate-900 tracking-tighter">Queue Manager</h2>
-                <div className="flex-1 overflow-y-auto pr-6 space-y-6 max-h-[650px] custom-scrollbar">
-                  {appointments.length === 0 ? <div className="py-32 text-center text-slate-300 uppercase tracking-widest">No active requests</div> : 
-                    appointments.map((a) => (
-                      <div key={a._id} className="p-8 border border-white rounded-[3.5rem] flex items-center justify-between bg-white shadow-sm">
-                        <div className="flex items-center gap-6">
-                          <img src={a.patientId?.image ? `http://localhost:5000${a.patientId.image}` : "https://api.dicebear.com/7.x/shapes/svg?seed=" + a.patientId?.name} className="w-20 h-20 rounded-[2.2rem] object-cover" alt="" />
-                          <div>
-                            <p className="font-black text-slate-800 text-2xl tracking-tight">{a.patientId?.name}</p>
-                            <p className="text-[11px] text-slate-400 font-black uppercase tracking-widest">{new Date(a.date).toLocaleDateString()} | {a.time}</p>
-                          </div>
-                        </div>
-                        <div className="flex gap-4">
-                          {a.status === "pending" ? (
-                            <>
-                              <button onClick={() => updateStatus(a._id, "cancel")} className="bg-rose-50 text-rose-500 px-8 py-4 rounded-[1.8rem] text-[11px] font-black uppercase">Cancel</button>
-                              <button onClick={() => updateStatus(a._id, "confirm")} className="bg-emerald-600 text-white px-8 py-4 rounded-[1.8rem] text-[11px] font-black uppercase">Confirm</button>
-                            </>
-                          ) : (
-                            <span className="text-[10px] font-black uppercase px-8 py-3.5 rounded-[1.5rem] bg-emerald-50 text-emerald-600 border border-emerald-100">{a.status}</span>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  }
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-black uppercase tracking-widest text-slate-400 px-2">Contact Details</h4>
+                    <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100 space-y-4">
+                        <div className="flex justify-between border-b border-slate-100 pb-3"><span className="text-xs font-bold text-slate-500">Email Address</span><span className="text-sm font-black">{doctorProfile?.userId?.email}</span></div>
+                        <div className="flex justify-between border-b border-slate-100 pb-3"><span className="text-xs font-bold text-slate-500">Phone</span><span className="text-sm font-black">{doctorProfile?.phone}</span></div>
+                        <div className="flex justify-between"><span className="text-xs font-bold text-slate-500">Status</span><span className="text-[10px] font-black bg-emerald-500 text-white px-3 py-1 rounded-lg uppercase">Active</span></div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
 
-            {activeTab === "earnings" && (
-              <div className="space-y-12 animate-in fade-in">
-                <h2 className="text-5xl font-black text-slate-900 tracking-tighter">Revenue Portal</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="p-8 bg-amber-50 rounded-[2.5rem]"><p className="text-[10px] font-black text-amber-600 uppercase">Total Revenue</p><p className="text-3xl font-black mt-2">Rs. {totalEarnings}</p></div>
-                  <div className="p-8 bg-emerald-50 rounded-[2.5rem]"><p className="text-[10px] font-black text-emerald-600 uppercase">Paid Invoices</p><p className="text-3xl font-black mt-2">{paidAppointments.length}</p></div>
-                </div>
-                <div className="max-h-[500px] overflow-y-auto pr-6 custom-scrollbar space-y-4">
-                  {paidAppointments.map((a) => (
-                    <div key={a._id} className="p-8 bg-white border border-slate-100 rounded-[2.5rem] flex justify-between items-center shadow-sm">
-                      <div className="flex items-center gap-6"><div className="w-14 h-14 bg-sky-50 rounded-2xl flex items-center justify-center font-black">{a.patientId?.name?.charAt(0)}</div><div><p className="font-black">{a.patientId?.name}</p><p className="text-[10px] text-slate-400">{new Date(a.date).toLocaleDateString()}</p></div></div>
-                      <div className="bg-slate-50 px-8 py-3 rounded-2xl font-black">Rs. {a.fee}</div>
+            {activeTab === "appointments" && (
+              <div className="animate-in slide-in-from-right-10 duration-500">
+                <header className="flex justify-between items-center mb-10">
+                    <h2 className="text-4xl font-black text-slate-900 tracking-tight">Patient Queue</h2>
+                    <span className="bg-slate-100 px-4 py-2 rounded-xl text-xs font-black text-slate-500">{appointments.length} Total</span>
+                </header>
+                <div className="grid gap-4">
+                  {appointments.map((a) => (
+                    <div key={a._id} className="p-6 bg-white border border-slate-100 rounded-[2rem] flex items-center justify-between hover:border-emerald-200 transition-all shadow-sm">
+                      <div className="flex items-center gap-5">
+                        <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${a.patientId?.name}`} className="w-14 h-14 rounded-2xl object-cover bg-slate-100" alt="" />
+                        <div>
+                          <p className="font-black text-slate-800 text-lg leading-none">{a.patientId?.name}</p>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">{new Date(a.date).toDateString()} at {a.time}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        {a.status === "pending" ? (
+                          <>
+                            <button onClick={() => updateStatus(a._id, "cancel")} className="bg-rose-50 text-rose-500 px-6 py-3 rounded-xl text-[10px] font-black uppercase border border-rose-100">Decline</button>
+                            <button onClick={() => updateStatus(a._id, "confirm")} className="bg-emerald-500 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase shadow-lg shadow-emerald-500/20">Accept</button>
+                          </>
+                        ) : (
+                          <span className={`text-[10px] font-black uppercase px-5 py-2.5 rounded-xl border ${
+                            a.status === 'confirmed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-100'
+                          }`}>{a.status}</span>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -403,63 +418,90 @@ export default function DoctorDashboard() {
             )}
 
             {activeTab === "availability" && (
-              <div className="space-y-12 h-full flex flex-col animate-in fade-in">
-                <h2 className="text-5xl font-black text-slate-900 tracking-tighter">Schedule Planner</h2>
-                <div className="grid grid-cols-1 xl:grid-cols-5 gap-12 flex-1 overflow-hidden">
-                  <div className="xl:col-span-2 bg-sky-50/50 border border-sky-100 p-10 rounded-[3.5rem] shadow-lg">
-                      <p className="text-[12px] font-black uppercase text-sky-400 tracking-widest mb-8 text-center">Define New Slots</p>
+              <div className="animate-in fade-in duration-500">
+                <h2 className="text-4xl font-black text-slate-900 tracking-tight mb-10">Scheduling</h2>
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-10">
+                  <div className="bg-slate-50 p-8 rounded-[2.5rem] border border-slate-100">
+                      <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-6">Create New Slot</h4>
                       <div className="space-y-4">
-                        <input type="date" value={newDay.date} onChange={e => setNewDay({...newDay, date: e.target.value})} className="w-full p-5 rounded-[1.5rem] border border-sky-100 outline-none font-black" />
-                        <input type="text" placeholder="Nepali Calendar Date" value={newDay.nepaliDate} onChange={e => setNewDay({...newDay, nepaliDate: e.target.value})} className="w-full p-5 rounded-[1.5rem] border border-sky-100 outline-none font-black" />
-                        <textarea placeholder="List slots: 10:00, 11:30..." value={newDay.slots} onChange={e => setNewDay({...newDay, slots: e.target.value})} className="w-full p-5 rounded-[1.5rem] border border-sky-100 outline-none font-black min-h-[120px]" />
-                        <button onClick={handleSaveSchedule} className="w-full bg-emerald-600 text-white py-6 rounded-[2rem] font-black text-[11px] uppercase tracking-widest shadow-2xl">Save Working Hours</button>
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 uppercase ml-2">Date (English)</label>
+                            <input type="date" value={newDay.date} onChange={e => setNewDay({...newDay, date: e.target.value})} className="w-full p-4 rounded-2xl border border-slate-200 outline-none font-bold text-sm focus:ring-4 ring-emerald-500/5 transition-all" />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 uppercase ml-2">Date (Local)</label>
+                            <input type="text" placeholder="2080-XX-XX" value={newDay.nepaliDate} onChange={e => setNewDay({...newDay, nepaliDate: e.target.value})} className="w-full p-4 rounded-2xl border border-slate-200 outline-none font-bold text-sm" />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 uppercase ml-2">Available Slots</label>
+                            <textarea placeholder="e.g. 10:00 AM, 11:30 AM" value={newDay.slots} onChange={e => setNewDay({...newDay, slots: e.target.value})} className="w-full p-4 rounded-2xl border border-slate-200 outline-none font-bold text-sm min-h-[100px]" />
+                        </div>
+                        <button onClick={handleSaveSchedule} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-slate-900/20">Save Schedule</button>
                       </div>
                   </div>
-                  <div className="xl:col-span-3 h-full flex flex-col">
-                    <p className="text-[12px] font-black uppercase text-slate-400 tracking-widest mb-8">Timeline Preview</p>
-                    <div className="space-y-6 overflow-y-auto pr-6 max-h-[600px] custom-scrollbar">
-                    {doctorProfile?.availability?.map((day, idx) => (
-                      <div key={idx} className="p-8 border border-sky-50 rounded-[3rem] bg-white relative hover:shadow-xl transition-all group">
-                        <div className="flex justify-between items-start mb-6">
-                          <div>
-                              <p className="text-xl font-black text-slate-800">{day.date}</p>
-                              <p className="text-[10px] text-emerald-500 font-black uppercase">{day.nepaliDate}</p>
+                  <div className="xl:col-span-2 space-y-4">
+                    <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 px-2">Upcoming Timeline</h4>
+                    <div className="space-y-4 max-h-[500px] overflow-y-auto pr-4 custom-scrollbar">
+                        {doctorProfile?.availability?.map((day, idx) => (
+                          <div key={idx} className="p-6 border border-slate-100 rounded-[2rem] bg-slate-50/30 group">
+                            <div className="flex justify-between items-center mb-4">
+                              <div>
+                                  <p className="text-lg font-black text-slate-800">{day.date}</p>
+                                  <p className="text-[9px] text-emerald-500 font-bold uppercase">{day.nepaliDate}</p>
+                              </div>
+                              <button onClick={() => handleDeleteSchedule(day.date)} className="opacity-0 group-hover:opacity-100 bg-rose-50 text-rose-500 px-3 py-1.5 rounded-lg text-[9px] font-black transition-all uppercase">Delete</button>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {day.slots.map((slot, sIdx) => (
+                                <span key={sIdx} className={`text-[10px] px-3 py-1.5 rounded-xl font-bold border ${slot.isBooked ? "bg-rose-50 text-rose-300 border-rose-100" : "bg-white text-slate-600 border-slate-200"}`}>{slot.time}</span>
+                              ))}
+                            </div>
                           </div>
-                          <div className="flex items-center gap-3">
-                              {/* INTEGRATED DELETE BUTTON */}
-                              <button 
-                                onClick={() => handleDeleteSchedule(day.date)} 
-                                className="text-[9px] font-black text-rose-500 bg-rose-50 hover:bg-rose-500 hover:text-white px-3 py-1.5 rounded-xl border border-rose-100 transition-all uppercase tracking-tighter"
-                              >
-                                Delete
-                              </button>
-                              <span className="bg-emerald-50 text-emerald-600 px-4 py-2 rounded-2xl text-[10px] font-black">{day.slots.length} SLOTS</span>
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap gap-3">
-                          {day.slots.map((slot, sIdx) => (
-                            <div key={sIdx} className={`text-[10px] px-5 py-2.5 rounded-xl font-black border ${slot.isBooked ? "bg-red-50 text-red-300" : "bg-sky-50 text-sky-600"}`}>{slot.time}</div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
+                        ))}
                     </div>
                   </div>
                 </div>
               </div>
             )}
 
-            {activeTab === "notifications" && (
-              <div className="space-y-8 h-full flex flex-col animate-in zoom-in-95">
-                <div className="flex justify-between items-center mb-12">
-                  <h2 className="text-5xl font-black text-slate-900 tracking-tighter">Activity</h2>
-                  <button onClick={clearReadNotifications} className="text-[11px] font-black text-red-400 hover:bg-red-50 px-8 py-3.5 rounded-2xl border border-red-100 uppercase">Clear All</button>
+            {activeTab === "earnings" && (
+              <div className="animate-in fade-in duration-500">
+                <h2 className="text-4xl font-black text-slate-900 tracking-tight mb-10">Revenue Overview</h2>
+                <div className="bg-slate-900 p-10 rounded-[2.5rem] text-white flex items-center justify-between shadow-2xl shadow-slate-900/30 mb-10">
+                    <div>
+                        <p className="text-xs font-bold text-white/50 uppercase tracking-widest">Available Balance</p>
+                        <h3 className="text-5xl font-black mt-2 tracking-tighter">Rs. {totalEarnings}</h3>
+                    </div>
+                    <div className="bg-white/10 p-5 rounded-3xl border border-white/10 backdrop-blur-md">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Total Paid Invoices</p>
+                        <p className="text-2xl font-black mt-1">{paidAppointments.length}</p>
+                    </div>
                 </div>
-                <div className="flex-1 overflow-y-auto pr-6 space-y-4 max-h-[650px] custom-scrollbar">
+                <div className="space-y-4">
+                   {paidAppointments.map((a) => (
+                    <div key={a._id} className="p-6 bg-white border border-slate-100 rounded-[2rem] flex justify-between items-center">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center font-black text-xs text-slate-500">{a.patientId?.name?.charAt(0)}</div>
+                        <div><p className="font-bold text-slate-800 text-sm">{a.patientId?.name}</p><p className="text-[10px] text-slate-400">{new Date(a.date).toDateString()}</p></div>
+                      </div>
+                      <div className="font-black text-emerald-600 text-sm">Rs. {a.fee}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "notifications" && (
+              <div className="animate-in zoom-in-95 duration-500">
+                <div className="flex justify-between items-center mb-10">
+                  <h2 className="text-4xl font-black text-slate-900 tracking-tight">System Alerts</h2>
+                  <button onClick={clearReadNotifications} className="text-[10px] font-black text-rose-500 bg-rose-50 px-5 py-2.5 rounded-xl border border-rose-100 uppercase transition-all hover:bg-rose-500 hover:text-white">Clear All</button>
+                </div>
+                <div className="space-y-3">
                   {notifications.map((n) => (
-                    <div key={n._id} onClick={() => markAsRead(n)} className={`p-10 rounded-[3.5rem] border ${n.isRead ? "opacity-50" : "bg-white shadow-xl"}`}>
-                      <p className="text-[12px] font-black uppercase tracking-widest">{n.title}</p>
-                      <p className="text-[16px] text-slate-500 mt-2 font-bold">{n.message}</p>
+                    <div key={n._id} onClick={() => markAsRead(n)} className={`p-6 rounded-[2rem] border transition-all cursor-pointer ${n.isRead ? "bg-slate-50/50 border-slate-100 opacity-60" : "bg-white border-sky-100 shadow-lg shadow-sky-500/5 ring-1 ring-sky-50"}`}>
+                      <p className="text-xs font-black uppercase tracking-widest text-sky-600">{n.title}</p>
+                      <p className="text-sm text-slate-600 mt-2 font-medium">{n.message}</p>
                     </div>
                   ))}
                 </div>
@@ -467,20 +509,27 @@ export default function DoctorDashboard() {
             )}
 
             {activeTab === "chat" && (
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-8 h-full">
-                <aside className="md:col-span-4 h-full flex flex-col">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Patient Queue</p>
-                  <div className="overflow-y-auto pr-4 space-y-4 max-h-[700px] custom-scrollbar">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-8 h-full animate-in fade-in duration-500">
+                <aside className="md:col-span-4 space-y-4">
+                  <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 px-2">Select Patient</h4>
+                  <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
                     {uniquePatients.map((p) => (
-                      <button key={p._id} onClick={() => setSelectedPatient(p)} className={`w-full p-6 rounded-[2.5rem] border transition-all flex items-center gap-4 ${selectedPatient?._id === p._id ? "bg-white border-emerald-500" : "bg-white/50 border-white"}`}>
-                        <div className="w-12 h-12 bg-sky-50 rounded-xl flex items-center justify-center font-black">{p.name.charAt(0)}</div>
-                        <p className="font-black text-sm">{p.name}</p>
+                      <button key={p._id} onClick={() => setSelectedPatient(p)} className={`w-full p-5 rounded-[2rem] border transition-all flex items-center gap-4 ${selectedPatient?._id === p._id ? "bg-slate-900 border-slate-900 text-white shadow-xl shadow-slate-900/20" : "bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100"}`}>
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs ${selectedPatient?._id === p._id ? "bg-white/20" : "bg-white shadow-sm"}`}>{p.name.charAt(0)}</div>
+                        <p className="font-bold text-sm tracking-tight">{p.name}</p>
                       </button>
                     ))}
                   </div>
                 </aside>
-                <div className="md:col-span-8 h-full">
-                  {selectedPatient ? <ChatBox doctorId={doctor?._id || doctor?.id} patient={selectedPatient} mainSocket={socket} /> : <div className="h-full flex items-center justify-center opacity-20 uppercase tracking-widest font-black">Select a patient</div>}
+                <div className="md:col-span-8">
+                  {selectedPatient ? (
+                    <ChatBox doctorId={doctor?._id || doctor?.id} patient={selectedPatient} mainSocket={socket} />
+                  ) : (
+                    <div className="h-[600px] bg-slate-50 rounded-[3rem] border border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-300">
+                        <span className="text-5xl mb-4">💬</span>
+                        <p className="font-black uppercase tracking-widest text-[10px]">Select a patient to begin</p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
