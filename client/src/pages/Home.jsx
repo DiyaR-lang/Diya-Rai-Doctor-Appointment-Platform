@@ -1,103 +1,102 @@
 import React from 'react';
 import { 
   Calendar, CheckCircle, Video, Lock, Heart, 
-  Stethoscope, Baby, Bone, Brain, Eye, Star 
+  Stethoscope, Baby, Bone, Brain, Eye, Star, ArrowRight 
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const Home = () => {
+  // Plug in your backend data here
+  const doctorsFromBackend = [
+    { id: 1, name: "Dr. Michael Chen", type: "Cardiologist", rating: "4.9" },
+    { id: 2, name: "Dr. Sarah Williams", type: "Dermatologist", rating: "5.0" },
+    { id: 3, name: "Dr. James Wilson", type: "Neurologist", rating: "4.8" },
+    { id: 4, name: "Dr. Emily Rodriguez", type: "Pediatrician", rating: "4.9" },
+  ];
+
   return (
-    <div className="bg-white font-sans">
+    /* Changed bg-slate-100 for a slightly darker, more professional base */
+    <div className="bg-[#edf2f7] font-sans text-slate-900 min-h-screen">
       
       {/* --- HERO SECTION --- */}
-      <div className="px-6 md:px-12 lg:px-20">
-        <div className="bg-[#5f6FFF] rounded-2xl flex flex-col md:flex-row items-center mt-10 px-10 md:px-16 lg:px-24 pt-10 md:pt-0 relative overflow-hidden">
+      <div className="px-6 md:px-12 lg:px-20 pt-10">
+        <div className="bg-white rounded-[2.5rem] border border-slate-200/60 shadow-2xl shadow-slate-300/50 flex flex-col md:flex-row items-center overflow-hidden min-h-[600px] relative">
           
+          {/* Light Mint Decorative Flare */}
+          <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-[#f0fff4] rounded-full blur-3xl opacity-80 -z-0"></div>
+
           {/* Left Side: Content */}
-          <div className="md:w-1/2 flex flex-col items-start justify-center gap-6 py-10 md:py-[10vw]">
-            <h1 className="text-white text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
-              Book Appointment <br /> With Trusted Doctors
-            </h1>
-            
-            <div className="flex flex-col md:flex-row items-center gap-3 text-white font-light text-sm">
-              <div className="flex -space-x-3">
-                <img className="w-10 h-10 rounded-full border-2 border-white shadow-sm" src="https://media.istockphoto.com/id/1356562845/photo/happy-doctor-leading-a-team-of-healthcare-workers-at-the-hospital.jpg?s=612x612&w=0&k=20&c=IMAkynSYgxfvO0Mo8s0yOj8245nelXyt4Z0IrgEZnik=" alt="doc1" />
-                <img className="w-10 h-10 rounded-full border-2 border-white shadow-sm" src="https://i.pravatar.cc/150?u=a2" alt="doc2" />
-                <img className="w-10 h-10 rounded-full border-2 border-white shadow-sm" src="https://i.pravatar.cc/150?u=a3" alt="doc3" />
-              </div>
-              <p className="text-center md:text-left opacity-90 leading-relaxed">
-                Simply browse through our extensive list of trusted doctors, <br className="hidden sm:block" /> schedule your appointment hassle-free.
-              </p>
+          <div className="md:w-1/2 flex flex-col items-start justify-center gap-8 p-10 md:p-16 lg:p-24 z-10">
+            <div className="inline-flex items-center gap-2 bg-[#e6fffa] px-4 py-2 rounded-full border border-[#b2f5ea]">
+              <span className="text-[#2c7a7b] text-xs font-black uppercase tracking-widest">Healthcare in Nepal</span>
             </div>
 
-            <button className="flex items-center gap-2 bg-white px-8 py-4 rounded-full text-gray-600 text-sm hover:scale-105 transition-all duration-300 shadow-lg font-medium">
-              Book appointment <span className="text-lg">→</span>
-            </button>
+            <h1 className="text-4xl md:text-5xl lg:text-7xl font-black leading-[1.1] tracking-tighter text-slate-900">
+              Your Health, <br /> 
+              <span className="text-sky-400">Simplified.</span>
+            </h1>
+            
+            <p className="text-slate-500 text-lg md:text-xl leading-relaxed max-w-md">
+              The most trusted medical network in the country. Connect with specialists at <span className="font-bold text-slate-800">MediHub Nepal</span>.
+            </p>
+
+            <div className="flex flex-wrap gap-4">
+              <Link to="/all-doctors" className="flex items-center gap-3 bg-sky-400 px-10 py-5 rounded-2xl text-white hover:bg-sky-500 transition-all duration-300 shadow-xl shadow-sky-200 group">
+                <span className="font-black tracking-tight">Book Now</span>
+                <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </div>
           </div>
 
-          {/* Right Side: Image Area */}
-          <div className="md:w-1/2 relative">
+          {/* Right Side: Image */}
+          <div className="md:w-1/2 h-full bg-[#f0fff4]/50 flex items-end justify-center relative overflow-hidden">
             <img 
               src="https://media.istockphoto.com/id/1356562845/photo/happy-doctor-leading-a-team-of-healthcare-workers-at-the-hospital.jpg?s=612x612&w=0&k=20&c=IMAkynSYgxfvO0Mo8s0yOj8245nelXyt4Z0IrgEZnik=" 
-              alt="Doctors" 
-              className="w-full "
+              alt="Healthcare Team" 
+              className="w-full h-full object-cover"
             />
           </div>
         </div>
       </div>
 
       {/* --- WHY CHOOSE US --- */}
-      <section className="py-20 px-6 max-w-7xl mx-auto text-center">
-        <h2 className="text-3xl font-bold mb-2">Why Choose MediCare?</h2>
-        <p className="text-gray-500 mb-12">Experience healthcare like never before</p>
-        
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-left">
-          <FeatureCard icon={<Calendar className="text-blue-500" />} title="Easy Booking" color="bg-blue-50" />
-          <FeatureCard icon={<CheckCircle className="text-emerald-500" />} title="Certified Doctors" color="bg-emerald-50" />
-          <FeatureCard icon={<Video className="text-purple-500" />} title="Video Consultation" color="bg-purple-50" />
-          <FeatureCard icon={<Lock className="text-amber-500" />} title="Secure & Private" color="bg-amber-50" />
+      <section className="py-32 px-6 max-w-7xl mx-auto">
+        <div className="text-center mb-16">
+          <h2 className="text-4xl font-black tracking-tight mb-4 text-slate-900">Why <span className="text-[#38b2ac]">MediHub Nepal?</span></h2>
+          <p className="text-slate-500 text-lg font-medium">Elevating the standard of care.</p>
         </div>
-      </section>
-
-      {/* --- POPULAR SPECIALITIES --- */}
-      <section className="py-20 bg-gray-50 px-6 text-center">
-        <h2 className="text-3xl font-bold mb-2">Popular Specialities</h2>
-        <p className="text-gray-500 mb-12">Find the right specialist for your needs</p>
-        
-        <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 mb-10">
-          <SpecialityCard icon={<Heart className="text-red-500" />} name="Cardiology" />
-          <SpecialityCard icon={<Stethoscope className="text-pink-500" />} name="Dermatology" />
-          <SpecialityCard icon={<Baby className="text-blue-500" />} name="Pediatrics" />
-          <SpecialityCard icon={<Bone className="text-green-500" />} name="Orthopedics" />
-          <SpecialityCard icon={<Brain className="text-purple-500" />} name="Neurology" />
-          <SpecialityCard icon={<Eye className="text-yellow-600" />} name="Ophthalmology" />
-        </div>
-        <button className="text-[#5f6FFF] font-semibold flex items-center gap-2 mx-auto hover:underline">
-          View All Specialities <span>→</span>
-        </button>
-      </section>
-
-      {/* --- MEET OUR TOP DOCTORS --- */}
-      <section className="py-20 px-6 max-w-7xl mx-auto text-center">
-        <h2 className="text-3xl font-bold mb-2">Meet Our Top Doctors</h2>
-        <p className="text-gray-500 mb-12">Experienced professionals ready to help you</p>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          <DoctorCard name="Dr. Michael Chen" type="Cardiologist" img="" />
-          <DoctorCard name="Dr. Sarah Williams" type="Dermatologist" img="" />
-          <DoctorCard name="Dr. James Wilson" type="Neurologist" img="" />
-          <DoctorCard name="Dr. Emily Rodriguez" type="Pediatrician" img="" />
+          <FeatureCard icon={<Calendar />} title="Fast Booking" desc="Connect with your doctor in under 60 seconds." color="bg-sky-400" />
+          <FeatureCard icon={<CheckCircle />} title="Certified" desc="100% verified medical professionals only." color="bg-[#38b2ac]" />
+          <FeatureCard icon={<Video />} title="Remote Care" desc="Consult via high-quality video calling." color="bg-sky-400" />
+          <FeatureCard icon={<Lock />} title="Privacy" desc="Your data is encrypted and secure with us." color="bg-[#38b2ac]" />
         </div>
       </section>
 
-      {/* --- TESTIMONIALS --- */}
-      <section className="py-20 bg-[#5f6FFF] px-6 text-center text-white">
-        <h2 className="text-3xl font-bold mb-2">What Our Patients Say</h2>
-        <p className="text-blue-100 mb-12">Real stories from real people</p>
-        
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
-          <TestimonialCard name="John Anderson" text="MediCare made booking my appointment so easy. Dr. Chen was professional and really listened." />
-          <TestimonialCard name="Maria Garcia" text="The video consultation feature is a game-changer! I could consult with Dr. Williams right from home." />
-          <TestimonialCard name="Kevin Smith" text="Finding a pediatrician for my son was a breeze. Dr. Rodriguez was wonderful with him!" />
+      {/* --- TOP DOCTORS --- */}
+      <section className="py-32 px-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-col md:flex-row justify-between items-center md:items-end mb-16 gap-4">
+            <div className="text-center md:text-left">
+              <h2 className="text-4xl font-black tracking-tight mb-2 text-slate-900">Top Rated Specialists</h2>
+              <p className="text-slate-500 font-medium">Expert care from our highest-rated professionals.</p>
+            </div>
+            <Link to="/all-doctors" className="text-sky-500 font-black hover:text-sky-600 transition-colors bg-white px-6 py-3 rounded-xl shadow-sm border border-slate-200">
+              View All Doctors
+            </Link>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
+            {doctorsFromBackend.map((doc) => (
+              <DoctorCard 
+                key={doc.id}
+                name={doc.name} 
+                type={doc.type} 
+                rating={doc.rating} 
+              />
+            ))}
+          </div>
         </div>
       </section>
 
@@ -105,61 +104,33 @@ const Home = () => {
   );
 };
 
-// --- HELPER COMPONENTS (Place these in the same file or separate ones) ---
+// --- REFINED SUB-COMPONENTS ---
 
-const FeatureCard = ({ icon, title, color }) => (
-  <div className="p-8 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-    <div className={`w-12 h-12 ${color} rounded-xl flex items-center justify-center mb-6`}>
-      {React.cloneElement(icon, { size: 24 })}
-    </div>
-    <h3 className="font-bold text-lg mb-2">{title}</h3>
-    <p className="text-gray-500 text-sm leading-relaxed">Book appointments in just a few clicks, anytime, anywhere.</p>
-  </div>
-);
-
-const SpecialityCard = ({ icon, name }) => (
-  <div className="bg-white p-6 rounded-2xl border border-gray-100 flex flex-col items-center gap-4 hover:border-[#5f6FFF] transition-all cursor-pointer group">
-    <div className="w-14 h-14 bg-gray-50 rounded-full flex items-center justify-center group-hover:bg-blue-50 transition-colors">
+const FeatureCard = ({ icon, title, desc, color }) => (
+  <div className="group p-10 rounded-[2.5rem] bg-white border border-slate-200/60 hover:shadow-2xl hover:-translate-y-1 transition-all duration-500">
+    <div className={`w-14 h-14 ${color} text-white rounded-2xl flex items-center justify-center mb-8 shadow-lg transition-transform group-hover:rotate-3`}>
       {React.cloneElement(icon, { size: 28 })}
     </div>
-    <span className="font-bold text-sm text-gray-700">{name}</span>
+    <h3 className="font-black text-xl mb-3 text-slate-800">{title}</h3>
+    <p className="text-slate-500 text-sm leading-relaxed">{desc}</p>
   </div>
 );
 
-const DoctorCard = ({ name, type, img }) => (
-  <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-lg transition-all text-left group">
-    <div className="h-64 bg-gray-100 overflow-hidden">
-        <img src={img} alt={name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+const DoctorCard = ({ name, type, rating }) => (
+  <div className="group bg-white rounded-[2.5rem] border border-slate-200/60 overflow-hidden hover:shadow-2xl transition-all duration-500">
+    <div className="h-64 bg-slate-100 relative">
+        <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full flex items-center gap-1 z-10 shadow-sm border border-slate-100">
+           <Star size={14} className="text-amber-400 fill-amber-400" />
+           <span className="text-xs font-black text-slate-900">{rating}</span>
+        </div>
+        <img src={`https://i.pravatar.cc/300?u=${name}`} alt={name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
     </div>
-    <div className="p-6">
-      <h3 className="font-bold text-lg">{name}</h3>
-      <p className="text-[#5f6FFF] text-xs font-semibold uppercase tracking-wider mb-2">{type}</p>
-      <div className="flex gap-1 text-amber-400 mb-2">
-        {[...Array(5)].map((_, i) => <Star key={i} size={14} fill="currentColor" />)}
-        <span className="text-gray-400 text-xs ml-1">(154)</span>
-      </div>
-      <p className="text-gray-400 text-xs mb-6 italic">10+ years experience</p>
-      <button className="w-full bg-[#5f6FFF] text-white py-3 rounded-xl font-bold text-sm hover:bg-blue-700 transition-colors shadow-md shadow-blue-200">
-        Book Appointment
-      </button>
-    </div>
-  </div>
-);
-
-const TestimonialCard = ({ name, text }) => (
-  <div className="bg-white p-8 rounded-3xl text-gray-900 shadow-xl">
-    <div className="flex gap-1 text-amber-400 mb-4">
-      {[...Array(5)].map((_, i) => <Star key={i} size={16} fill="currentColor" />)}
-    </div>
-    <p className="text-gray-600 text-sm leading-relaxed mb-8 italic">"{text}"</p>
-    <div className="flex items-center gap-3">
-      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center font-bold text-[#5f6FFF]">
-        {name.charAt(0)}
-      </div>
-      <div>
-        <h4 className="font-bold text-sm">{name}</h4>
-        <p className="text-gray-400 text-xs uppercase">Patient</p>
-      </div>
+    <div className="p-8">
+      <p className="text-[#38b2ac] text-[10px] font-black uppercase tracking-widest mb-1">{type}</p>
+      <h3 className="font-black text-lg mb-6 text-slate-900">{name}</h3>
+      <Link to="/all-doctors" className="block w-full text-center bg-sky-50 text-sky-500 py-4 rounded-2xl font-black text-sm hover:bg-sky-400 hover:text-white transition-all shadow-sm shadow-sky-100">
+        Book Visit
+      </Link>
     </div>
   </div>
 );

@@ -2,6 +2,8 @@ import axios from "axios";
 import Payment from "../models/Payment.js";
 import Doctor from "../models/Doctor.js";
 import Appointment from "../models/Appointment.js";
+
+import { sendNotification } from "../utils/notify.js";
 // --- 1. INITIATE PAYMENT (The part you were missing) ---
 export const initiateKhaltiPayment = async (req, res) => {
   try {
@@ -38,64 +40,66 @@ export const initiateKhaltiPayment = async (req, res) => {
 };
 
 // --- 2. VERIFY PAYMENT (Updated for Sandbox URLs) ---
+// --- VERIFY PAYMENT (Corrected for Approval Flow) ---
 export const verifyKhaltiPayment = async (req, res) => {
   const { pidx, appointmentId } = req.body;
-
-  if (!pidx || !appointmentId) {
-    return res.status(400).json({ success: false, message: "Missing pidx or appointmentId" });
-  }
+  const io = req.app.get("socketio");
 
   try {
     const khaltiResponse = await axios.post(
-      "https://a.khalti.com/api/v2/epayment/lookup/",
+      "https://a.khalti.com/api/v2/epayment/lookup/", 
       { pidx },
-      {
-        headers: {
-          Authorization: `Key ${process.env.KHALTI_SECRET_KEY}`,
-          'Content-Type': 'application/json',
-        },
-      }
+      { headers: { Authorization: `Key ${process.env.KHALTI_SECRET_KEY.trim()}` } }
     );
 
     if (khaltiResponse.data.status === "Completed") {
-      // This line was crashing because 'Appointment' wasn't imported!
-      const updatedAppointment = await Appointment.findByIdAndUpdate(
+      // BRIDGE: Populate doctorId.userId to reach the Account ID
+      const appointment = await Appointment.findByIdAndUpdate(
         appointmentId,
-        { 
-          paymentStatus: "paid", 
-          transactionId: khaltiResponse.data.transaction_id 
-        },
+        { paymentStatus: "paid", status: "pending" },
         { new: true }
-      );
+      ).populate({ path: "doctorId", select: "userId" }).populate("patientId");
 
-      if (!updatedAppointment) {
-        return res.status(404).json({ success: false, message: "Appointment record not found" });
+      if (!appointment) return res.status(404).json({ message: "Appointment not found" });
+
+      // Update Doctor Availability Slot
+      const doctor = await Doctor.findById(appointment.doctorId._id);
+      if (doctor) {
+        const day = doctor.availability.find(a => a.date === appointment.date);
+        const slot = day?.slots.find(s => s.time === appointment.time);
+        if (slot) {
+          slot.isBooked = true;
+          slot.bookedBy = appointment.patientId._id;
+          await doctor.save();
+        }
       }
 
-      // OPTIONAL: Create a record in your Payment collection too
-      await Payment.create({
-        userId: updatedAppointment.patientId,
-        doctorId: updatedAppointment.doctorId,
-        amount: khaltiResponse.data.total_amount / 100,
-        transactionId: khaltiResponse.data.transaction_id,
-        status: "Completed"
+      // NOTIFICATION LOGIC: Targeting the 6982... ID
+      const doctorAccountID = appointment.doctorId.userId._id || appointment.doctorId.userId;
+      const doctorAccountStr = doctorAccountID.toString();
+
+      // Send Real-time Notification to Doctor's Account Room
+      await sendNotification(io, {
+        userId: doctorAccountStr,
+        title: "Payment Confirmed",
+        message: `Patient ${appointment.patientId.name} has paid for the appointment on ${appointment.date}.`,
+        type: "appointment_booked"
       });
 
-      return res.status(200).json({
-        success: true,
-        payment: {
-          transactionId: khaltiResponse.data.transaction_id,
-          amount: khaltiResponse.data.total_amount / 100,
-        }
-      });
-    } else {
-      return res.status(400).json({ success: false, message: "Khalti payment not completed" });
+      // Emit specific events for dashboard refresh
+      io.to(doctorAccountStr).emit("new_appointment", appointment);
+      io.emit("slot_booked", { doctorId: doctor._id, date: appointment.date, time: appointment.time });
+
+      res.status(200).json({ success: true, message: "Payment verified successfully" });
     }
   } catch (error) {
-    console.error("Khalti Verify Error:", error.response?.data || error.message);
-    res.status(500).json({ success: false, message: "Internal Server Error during verification" });
+    res.status(500).json({ message: "Verification failed", error: error.message });
   }
 };
+
+
+
+
 // controller/paymentController.js
 
 export const getReceipt = async (req, res) => {

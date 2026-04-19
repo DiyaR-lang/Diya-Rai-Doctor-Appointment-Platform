@@ -13,47 +13,29 @@ const router = express.Router();
 // ============================
 // server/src/routes/appointments.js
 
+// server/src/routes/appointments.js -> POST "/"
 router.post("/", protect, authorizeRoles("patient"), async (req, res) => {
   try {
     const { doctorId, date, time, note, fee } = req.body;
 
-    // 1. Fetch the doctor profile and explicitly populate the userId
-    const doctor = await Doctor.findById(doctorId).populate("userId");
-    if (!doctor) return res.status(404).json({ message: "Doctor not found" });
-
-    
-    const targetUserId = doctor.userId._id || doctor.userId;
-
-    if (!targetUserId) {
-      console.error("Critical: Doctor profile exists but has no linked userId");
-      return res.status(400).json({ message: "Doctor account configuration error" });
-    }
-
-    // 3. Create the appointment
+    // Create the appointment as PENDING/UNPAID
+    // DO NOT update doctor.availability yet!
     const appointment = await Appointment.create({
       doctorId,
       patientId: req.user._id,
       date,
       time,
       note,
-      fee: fee || doctor.fee,
+      fee: fee,
       status: "pending",
-      paymentStatus: "pending",
+      paymentStatus: "pending", // Keep it pending
     });
 
-    // 4. Send Notification
-    const io = req.app.get("socketio") || req.app.get("io");
-
-    await sendNotification(io, {
-      userId: targetUserId.toString(), // Ensure this is a string!
-      title: "New Appointment Booked",
-      message: `New booking from ${req.user.name} for ${date}`,
-      type: "appointment_booked",
-    });
+    // DO NOT send notifications to the doctor here.
+    // The doctor shouldn't know until the money is paid.
 
     res.status(201).json(appointment);
   } catch (err) {
-    console.error("BOOK APPOINTMENT ERROR:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -100,19 +82,34 @@ router.delete("/:id", protect, authorizeRoles("patient"), async (req, res) => {
 // ============================
 // GET ALL APPOINTMENTS (Doctor)
 // ============================
+// For Doctor Dashboard
 router.get("/doctor/my", protect, authorizeRoles("doctor"), async (req, res) => {
   try {
+    // 1. Find the profile first using the logged-in User ID
     const doctorProfile = await Doctor.findOne({ userId: req.user._id });
     if (!doctorProfile) return res.status(404).json({ message: "Doctor profile not found" });
 
-    const appointments = await Appointment.find({ doctorId: doctorProfile._id })
-      .populate("patientId", "name email image")
-      .sort({ createdAt: -1 });
-
+    // 2. Query appointments using the Profile ID
+    const appointments = await Appointment.find({ 
+      doctorId: doctorProfile._id, 
+      paymentStatus: "paid" 
+    }).populate("patientId", "name email image");
+    
     res.json(appointments);
   } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
+});
+
+// For Patient Dashboard
+router.get("/my", protect, authorizeRoles("patient"), async (req, res) => {
+  // ONLY fetch paid appointments (or show unpaid ones with a "Pay Now" button)
+  const appointments = await Appointment.find({ 
+    patientId: req.user._id, 
+    paymentStatus: "paid" 
+  }).populate("doctorId");
+  
+  res.json(appointments);
 });
 
 // ============================

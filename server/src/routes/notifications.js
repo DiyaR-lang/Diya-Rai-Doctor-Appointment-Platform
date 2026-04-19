@@ -88,5 +88,30 @@ router.delete("/clear-read", protect, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+// TEMPORARY: Remove this before production
+router.post("/manual-test", async (req, res) => {
+    try {
+        const { userId, title, message } = req.body;
+        
+        // 1. Create in Database
+        const notification = await Notification.create({
+            user: userId,
+            title: title || "Test Notification",
+            message: message || "This was triggered manually to bypass payment.",
+            type: "appointment_booked",
+            isRead: false
+        });
+
+        // 2. Emit via Socket (if doctor is online)
+        const io = req.app.get("socketio");
+        if (io) {
+            io.to(userId).emit("new_notification", notification);
+        }
+
+        res.status(201).json(notification);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 export default router;

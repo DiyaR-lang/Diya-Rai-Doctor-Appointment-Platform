@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { 
-  FiUsers, FiActivity, FiShield, FiPieChart, 
-  FiSearch, FiLogOut, FiDollarSign, FiClock, 
-  FiCheckCircle, FiTrash2, FiAlertCircle, FiTrendingUp, FiLayers
+  FiUsers, FiActivity, FiShield, FiSearch, FiLogOut, 
+  FiGrid, FiCheckCircle, FiTrash2, FiClock, FiPlusCircle, 
+  FiArrowUpRight, FiLayers
 } from "react-icons/fi";
 
 const ADMIN_SECRET = "ResolveNow_Super_Secret_2026";
@@ -14,15 +14,11 @@ export default function AdminDashboard() {
   const [patients, setPatients] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [stats, setStats] = useState({ 
-    totalDoctors: 0, 
-    totalPatients: 0, 
-    totalAppointments: 0, 
-    totalRevenue: 0 
+    totalDoctors: 0, totalPatients: 0, totalAppointments: 0, totalRevenue: 0 
   });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
-  const [isProcessing, setIsProcessing] = useState(null);
 
   useEffect(() => {
     fetchSystemData();
@@ -35,269 +31,245 @@ export default function AdminDashboard() {
         axios.get(`${API_BASE_URL}/all-users`, { headers }),
         axios.get(`${API_BASE_URL}/dashboard-stats`, { headers })
       ]);
-      setDoctors(usersRes.data.doctors || []);
-      setPatients(usersRes.data.patients || []);
-      setStats(statsRes.data.stats || {});
-      setAppointments(statsRes.data.appointments || []);
-      setLoading(false);
+      setDoctors(usersRes.data?.doctors || []);
+      setPatients(usersRes.data?.patients || []);
+      setStats(statsRes.data?.stats || {});
+      setAppointments(statsRes.data?.appointments || []);
     } catch (err) {
+      console.error("Fetch Error:", err);
+    } finally {
       setLoading(false);
     }
   };
 
   const handleApprove = async (id) => {
-    setIsProcessing(id);
     try {
-      await axios.put(`${API_BASE_URL}/approve-doctor/${id}`, {}, {
-        headers: { "x-admin-secret": ADMIN_SECRET }
-      });
+      await axios.put(`${API_BASE_URL}/approve-doctor/${id}`, {}, { headers: { "x-admin-secret": ADMIN_SECRET } });
       fetchSystemData();
-    } catch (err) {
-      alert("Verification failed.");
-    } finally {
-      setIsProcessing(null);
-    }
+    } catch (err) { alert("Action failed"); }
   };
 
   const handleDelete = async (id, type) => {
-    if (!window.confirm(`Permanently remove this ${type}?`)) return;
-    setIsProcessing(id);
+    if (!window.confirm("Confirm deletion?")) return;
     try {
-      await axios.delete(`${API_BASE_URL}/${type}/${id}`, {
-        headers: { "x-admin-secret": ADMIN_SECRET }
-      });
+      await axios.delete(`${API_BASE_URL}/${type}/${id}`, { headers: { "x-admin-secret": ADMIN_SECRET } });
       fetchSystemData();
-    } catch (err) {
-      alert("Deletion failed.");
-    } finally {
-      setIsProcessing(null);
-    }
+    } catch (err) { alert("Delete failed"); }
   };
 
-  const filteredDoctors = doctors.filter(doc => 
-    doc.userId?.name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const filteredPatients = patients.filter(p => 
-    p.name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
   if (loading) return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#FDFDFD]">
-      <div className="w-12 h-12 border-[3px] border-slate-100 border-t-emerald-500 rounded-full animate-spin mb-6"></div>
-      <p className="font-bold text-slate-400 uppercase tracking-[0.3em] text-[10px]">Authorizing Secure Channel</p>
+    <div className="h-screen w-full flex flex-col items-center justify-center bg-[#F0F9FF]">
+      <div className="w-12 h-12 border-4 border-sky-400 border-t-transparent rounded-full animate-spin mb-4"></div>
+      <p className="text-sky-600 font-bold tracking-widest text-xs uppercase">Initializing Healthcare Hub...</p>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#F4F7FE] flex font-sans text-[#1E293B] selection:bg-emerald-100 selection:text-emerald-900">
+    <div className="flex h-screen w-full bg-[#F8FAFC] overflow-hidden font-sans text-slate-800">
       
-      {/* SIDEBAR - Ultra Modern Minimalist */}
-      <aside className="w-[300px] bg-white border-r border-slate-200/60 p-10 flex flex-col fixed h-full shadow-[20px_0_40px_-20px_rgba(0,0,0,0.02)]">
-        <div className="mb-16">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-emerald-500 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-200">
-              <FiLayers className="text-white text-xl" />
+      {/* RIGID SIDEBAR - Light Sky Theme */}
+      <aside className="w-72 bg-gradient-to-b from-sky-50 to-white flex flex-col h-full border-r border-sky-100 shadow-[20px_0_40px_rgba(14,165,233,0.03)] z-20">
+        <div className="p-10">
+          <div className="flex items-center gap-3 mb-1">
+            <div className="bg-sky-500 p-2.5 rounded-2xl shadow-lg shadow-sky-200">
+                <FiLayers className="text-white text-xl" />
             </div>
-            <h1 className="text-2xl font-black tracking-[-0.04em] text-slate-900">ResolveNow</h1>
+            <span className="text-2xl font-black tracking-tighter text-slate-900">Medi<span className="text-sky-500">Hub</span> Nepal</span>
           </div>
-          <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] ml-1">Terminal v2.0</p>
+          <p className="text-[10px] font-bold text-sky-400 uppercase tracking-[0.3em] ml-1">Admin Dashboard </p>
         </div>
-        
-        <nav className="flex-1 space-y-3">
+
+        <nav className="flex-1 px-6 space-y-2">
           {[
-            { id: 'overview', icon: <FiPieChart />, label: 'Analytics' },
-            { id: 'doctors', icon: <FiShield />, label: 'Verifications' },
-            { id: 'patients', icon: <FiUsers />, label: 'Registry' }
-          ].map(item => (
-            <button key={item.id} onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold text-[13px] transition-all duration-300 ${activeTab === item.id ? "bg-slate-900 text-white shadow-2xl shadow-slate-300 translate-x-2" : "text-slate-400 hover:bg-slate-50 hover:text-slate-600"}`}>
-              <span className="text-lg">{item.icon}</span>
+            { id: 'overview', icon: <FiGrid />, label: 'Main Dashboard' },
+            { id: 'doctors', icon: <FiShield />, label: 'Doctor Approvals' },
+            { id: 'patients', icon: <FiUsers />, label: 'Patient Registry' },
+          ].map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={`w-full flex items-center gap-4 px-6 py-4 rounded-[20px] text-sm font-bold transition-all duration-300 ${
+                activeTab === item.id 
+                ? "bg-white text-sky-600 shadow-xl shadow-sky-100 scale-105 border border-sky-100" 
+                : "text-slate-400 hover:text-sky-500 hover:bg-sky-100/30"
+              }`}
+            >
+              <span className="text-xl">{item.icon}</span>
               {item.label}
             </button>
           ))}
         </nav>
 
-        <button onClick={() => window.location.href = '/'} className="flex items-center gap-3 text-rose-500 font-bold text-xs p-4 hover:bg-rose-50 rounded-2xl mt-auto transition-colors group">
-          <FiLogOut className="group-hover:-translate-x-1 transition-transform" /> TERMINATE SESSION
-        </button>
+        <div className="p-8">
+          <button onClick={() => window.location.href = '/'} className="w-full flex items-center gap-3 px-6 py-4 text-rose-400 font-bold text-sm bg-rose-50/50 hover:bg-rose-100/50 rounded-2xl transition-all border border-rose-100">
+            <FiLogOut className="text-lg" /> Sign Out
+          </button>
+        </div>
       </aside>
 
-      {/* MAIN VIEWPORT */}
-      <main className="flex-1 ml-[300px] p-16">
+      {/* MAIN CONTENT AREA */}
+      <main className="flex-1 flex flex-col h-full overflow-hidden bg-white/40 backdrop-blur-3xl">
         
-        {/* Header - Fixed-feel Layout */}
-        <header className="flex justify-between items-end mb-16">
-          <div className="animate-in fade-in slide-in-from-left-4 duration-700">
-            <h2 className="text-6xl font-black text-slate-900 tracking-[-0.05em] leading-none mb-4 capitalize">
-              {activeTab}
-            </h2>
-            <div className="flex items-center gap-3">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-              <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Real-time Data Stream Active</p>
+        {/* TOP NAVBAR */}
+        <header className="px-12 py-8 flex justify-between items-center border-b border-slate-100">
+          <div>
+            <h1 className="text-3xl font-black text-slate-900 capitalize tracking-tight">{activeTab}</h1>
+            <div className="flex items-center gap-2 mt-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Server Secure • 2026</span>
             </div>
           </div>
           
-          <div className="relative w-[400px] shadow-2xl shadow-slate-200/50 rounded-3xl overflow-hidden group">
-            <FiSearch className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-emerald-500 transition-colors" />
+          <div className="relative group">
+            <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-sky-500 transition-colors" />
             <input 
               type="text" 
-              placeholder={`Search ${activeTab}...`} 
-              value={searchTerm} 
+              placeholder="Search data..."
+              className="pl-12 pr-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:ring-4 focus:ring-sky-50 focus:border-sky-200 outline-none w-80 transition-all font-bold"
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-16 pr-8 py-5 bg-white border-none outline-none font-bold text-sm placeholder:text-slate-200 text-slate-700" 
             />
           </div>
         </header>
 
-        {/* --- DASHBOARD ANALYTICS --- */}
-        {activeTab === "overview" && (
-          <div className="space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+        {/* SCROLLABLE BODY */}
+        <section className="flex-1 overflow-y-auto p-12 bg-[#F8FAFC]/50">
+          <div className="max-w-7xl mx-auto space-y-10">
             
-            <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
-              {/* Primary Metric - Impact */}
-              <div className="xl:col-span-2 bg-[#0F172A] p-12 rounded-[4rem] text-white shadow-[0_40px_80px_-20px_rgba(15,23,42,0.3)] relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-emerald-500/10 rounded-full -mr-40 -mt-40 blur-[100px]"></div>
-                <div className="relative z-10">
-                  <div className="flex items-center gap-2 mb-6">
-                    <FiTrendingUp className="text-emerald-400 text-xl" />
-                    <p className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-500">Global Utilization</p>
-                  </div>
-                  <h3 className="text-8xl font-black text-white tracking-[-0.06em] leading-none mb-4">
-                    {stats.totalAppointments}
-                  </h3>
-                  <p className="text-emerald-400 font-bold text-sm uppercase tracking-widest italic">Total Consultations Processed</p>
+            {/* STATS SECTION */}
+            {activeTab === "overview" && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                  <StatCard label="Medical Staff" count={stats.totalDoctors} icon={<FiShield />} color="bg-sky-500" />
+                  <StatCard label="Patients" count={stats.totalPatients} icon={<FiUsers />} color="bg-emerald-500" />
+                  <StatCard label="Revenue (NPR)" count={stats.totalRevenue || 0} icon={<FiActivity />} color="bg-indigo-500" />
                 </div>
-              </div>
 
-              <StatCard icon={<FiShield />} label="Staff Verified" count={stats.totalDoctors} color="emerald" />
-              <StatCard icon={<FiUsers />} label="Member Base" count={stats.totalPatients} color="indigo" />
-            </div>
-
-            {/* Live Feed - Sophisticated Table Style */}
-            <div className="bg-white rounded-[4rem] p-12 shadow-[0_10px_60px_-15px_rgba(0,0,0,0.03)] border border-slate-100/50">
-              <div className="flex justify-between items-center mb-12">
-                <h3 className="text-2xl font-black tracking-tight flex items-center gap-4 text-slate-800">
-                  <span className="w-10 h-1 rounded-full bg-emerald-500"></span>
-                  System Traffic Feed
-                </h3>
-                <button className="text-[10px] font-black text-slate-400 hover:text-emerald-500 transition-colors uppercase tracking-widest border border-slate-100 px-6 py-2 rounded-full">View Full Logs</button>
-              </div>
-
-              <div className="space-y-6">
-                {appointments.slice(0, 5).map(app => (
-                  <div key={app._id} className="group grid grid-cols-5 items-center p-8 rounded-[2.5rem] bg-[#FDFDFD] hover:bg-white border border-transparent hover:border-slate-100 hover:shadow-xl transition-all duration-500">
-                    <div className="col-span-2">
-                      <p className="font-black text-slate-800 text-xl tracking-tight mb-1 group-hover:text-emerald-600 transition-colors">{app.patientId?.name || "Private User"}</p>
-                      <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Medical Lead: Dr. {app.doctorId?.userId?.name || "Staff"}</p>
+                <div className="bg-white rounded-[32px] border border-slate-100 shadow-xl shadow-slate-200/40 overflow-hidden">
+                  <div className="px-10 py-6 border-b border-slate-50 flex justify-between items-center bg-slate-50/30">
+                    <h3 className="font-black text-slate-800 uppercase text-xs tracking-widest">Live Activity Log</h3>
+                    <div className="flex gap-2">
+                        <span className="w-3 h-3 rounded-full bg-sky-100 flex items-center justify-center"><span className="w-1.5 h-1.5 rounded-full bg-sky-500"></span></span>
                     </div>
-                    <div>
-                      <span className="text-[9px] font-black text-slate-300 uppercase block mb-1">Standard Fee</span>
-                      <p className="font-black text-xl text-slate-900 tracking-tighter">Rs. {app.amount || 0}</p>
+                  </div>
+                  <div className="p-0 overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">
+                          <th className="px-10 py-5">Patient Name</th>
+                          <th className="px-10 py-5">Consultant</th>
+                          <th className="px-10 py-5">Payment Status</th>
+                          <th className="px-10 py-5 text-right">Service Fee</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {appointments?.slice(0, 6).map(app => (
+                          <tr key={app._id} className="hover:bg-sky-50/30 transition-all cursor-default group">
+                            <td className="px-10 py-6">
+                                <span className="font-bold text-slate-700 text-base">{app.patientId?.name || "Member"}</span>
+                            </td>
+                            <td className="px-10 py-6 font-semibold text-slate-500">
+                                Dr. {app.doctorId?.userId?.name || "General"}
+                            </td>
+                            <td className="px-10 py-6">
+                              <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-tighter ${
+                                app.paymentStatus === 'paid' 
+                                ? 'bg-emerald-50 text-emerald-600' 
+                                : 'bg-amber-50 text-amber-600'
+                              }`}>
+                                {app.paymentStatus || 'Waiting'}
+                              </span>
+                            </td>
+                            <td className="px-10 py-6 text-right font-black text-slate-900">
+                                Rs. {app.amount || 0}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* DOCTORS TAB */}
+            {activeTab === "doctors" && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {doctors?.filter(d => d.userId?.name?.toLowerCase().includes(searchTerm.toLowerCase())).map(doc => (
+                  <div key={doc._id} className="bg-white p-8 rounded-[32px] border border-sky-50 shadow-xl shadow-sky-900/5 group hover:border-sky-200 transition-all relative overflow-hidden">
+                    <div className={`absolute top-0 right-0 px-5 py-2 text-[9px] font-black uppercase tracking-widest ${doc.isVerified ? 'bg-emerald-500 text-white' : 'bg-amber-400 text-white'}`}>
+                      {doc.isVerified ? 'Official' : 'Pending'}
                     </div>
-                    <div className="col-span-2 flex justify-end gap-6 items-center">
-                      <span className={`px-6 py-2 rounded-2xl text-[10px] font-black uppercase tracking-[0.1em] ${
-                        app.paymentStatus?.toLowerCase() === 'paid' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-amber-50 text-amber-600 border border-amber-100'
-                      }`}>
-                        {app.paymentStatus || 'Pending'}
-                      </span>
+                    
+                    <div className="w-14 h-14 bg-sky-50 rounded-2xl flex items-center justify-center text-sky-500 text-2xl mb-6">
+                        <FiShield />
+                    </div>
+                    
+                    <h3 className="text-xl font-black text-slate-800 mb-1 leading-tight">Dr. {doc.userId?.name}</h3>
+                    <p className="text-sky-400 text-[10px] font-black mb-8 uppercase tracking-widest">{doc.specialty}</p>
+                    
+                    <div className="flex gap-3 pt-6 border-t border-slate-50">
+                      {!doc.isVerified && (
+                        <button onClick={() => handleApprove(doc._id)} className="flex-1 bg-sky-500 text-white py-3 rounded-xl text-xs font-bold hover:bg-sky-600 transition-all">Verify</button>
+                      )}
+                      <button onClick={() => handleDelete(doc._id, 'doctor')} className="flex-1 bg-slate-50 text-slate-400 py-3 rounded-xl text-xs font-bold hover:bg-rose-500 hover:text-white transition-all">Delete</button>
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {/* --- DOCTOR VERIFICATION GRID --- */}
-        {activeTab === "doctors" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in duration-700">
-            {filteredDoctors.map(doc => (
-              <div key={doc._id} className="bg-white p-10 rounded-[3.5rem] shadow-xl border border-slate-100/50 hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 group">
-                <div className="flex justify-between items-start mb-8">
-                   <div className="w-16 h-16 bg-slate-50 rounded-[1.5rem] flex items-center justify-center text-slate-300 text-2xl group-hover:bg-emerald-50 group-hover:text-emerald-500 transition-all">
-                     <FiShield />
-                   </div>
-                   {doc.isVerified ? (
-                     <div className="bg-emerald-50 text-emerald-600 p-2 rounded-full"><FiCheckCircle /></div>
-                   ) : (
-                     <div className="bg-amber-50 text-amber-500 p-2 rounded-full animate-pulse"><FiAlertCircle /></div>
-                   )}
-                </div>
-                <h4 className="text-2xl font-black text-slate-900 mb-1">{doc.userId?.name || "Medical Provider"}</h4>
-                <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em] mb-8">{doc.specialty}</p>
-                
-                <div className="flex gap-4">
-                  {!doc.isVerified && (
-                    <button 
-                      onClick={() => handleApprove(doc._id)}
-                      disabled={isProcessing === doc._id}
-                      className="flex-1 bg-emerald-500 text-white py-5 rounded-[1.5rem] text-[11px] font-black uppercase tracking-widest hover:bg-emerald-600 shadow-lg shadow-emerald-100 transition-all"
-                    >
-                      Grant Access
-                    </button>
-                  )}
-                  <button 
-                    onClick={() => handleDelete(doc._id, 'doctor')}
-                    className="flex-1 bg-slate-50 text-slate-400 py-5 rounded-[1.5rem] text-[11px] font-black uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all"
-                  >
-                    Purge Record
-                  </button>
-                </div>
+            {/* PATIENTS TAB */}
+            {activeTab === "patients" && (
+              <div className="bg-white rounded-[32px] border border-slate-100 shadow-xl shadow-slate-200/40 overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                  <thead className="bg-slate-50/50">
+                    <tr>
+                      <th className="px-10 py-6 text-[10px] font-black uppercase text-slate-400 tracking-widest">Medical Holder</th>
+                      <th className="px-10 py-6 text-[10px] font-black uppercase text-slate-400 tracking-widest">Contact Email</th>
+                      <th className="px-10 py-6 text-right text-[10px] font-black uppercase text-slate-400 tracking-widest">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {patients?.filter(p => p.name?.toLowerCase().includes(searchTerm.toLowerCase())).map(p => (
+                      <tr key={p._id} className="hover:bg-slate-50 transition-all">
+                        <td className="px-10 py-6">
+                          <p className="font-bold text-slate-800 text-lg">{p.name}</p>
+                          <p className="text-[10px] text-sky-400 font-bold uppercase">ID: {p._id.slice(-6)}</p>
+                        </td>
+                        <td className="px-10 py-6 text-sm text-slate-500 font-medium">{p.email}</td>
+                        <td className="px-10 py-6 text-right">
+                          <button onClick={() => handleDelete(p._id, 'patient')} className="w-12 h-12 rounded-2xl bg-slate-50 text-slate-300 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center ml-auto shadow-sm">
+                            <FiTrash2 size={20} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            ))}
+            )}
           </div>
-        )}
 
-        {/* --- PATIENT REGISTRY --- */}
-        {activeTab === "patients" && (
-          <div className="bg-white rounded-[4rem] overflow-hidden shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-500">
-            <table className="w-full text-left">
-              <thead className="bg-[#FDFDFD] border-b border-slate-50">
-                <tr>
-                  <th className="px-12 py-8 text-[11px] font-black uppercase text-slate-300 tracking-widest">Full Name</th>
-                  <th className="px-12 py-8 text-[11px] font-black uppercase text-slate-300 tracking-widest">Digital ID / Email</th>
-                  <th className="px-12 py-8 text-right text-[11px] font-black uppercase text-slate-300 tracking-widest">Management</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {filteredPatients.map(p => (
-                  <tr key={p._id} className="hover:bg-slate-50/40 transition-colors">
-                    <td className="px-12 py-10 font-black text-slate-800 text-lg tracking-tight">{p.name}</td>
-                    <td className="px-12 py-10 font-bold text-slate-400 text-sm italic">{p.email}</td>
-                    <td className="px-12 py-10 text-right">
-                      <button 
-                        onClick={() => handleDelete(p._id, 'patient')}
-                        className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all ml-auto"
-                      >
-                        <FiTrash2 />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+          <footer className="mt-20 py-10 border-t border-slate-100 text-center">
+            <p className="text-slate-300 text-[10px] font-bold uppercase tracking-[0.5em]">Healthcare Terminal v2.5 • Nepal • 2026</p>
+          </footer>
+        </section>
       </main>
     </div>
   );
 }
 
-// Stats Widget - Premium Aesthetic
-function StatCard({ icon, label, count, color }) {
-  const configs = { 
-    emerald: "text-emerald-500 bg-emerald-50 shadow-emerald-100/50", 
-    indigo: "text-indigo-500 bg-indigo-50 shadow-indigo-100/50" 
-  };
-  
+// Stats Card Sub-component
+function StatCard({ label, count, icon, color }) {
   return (
-    <div className="bg-white p-12 rounded-[3.5rem] shadow-[0_20px_50px_-10px_rgba(0,0,0,0.03)] border border-slate-100/60 transition-all hover:-translate-y-3">
-      <div className={`w-16 h-16 rounded-[1.8rem] flex items-center justify-center text-2xl mb-10 shadow-xl ${configs[color]}`}>
+    <div className="bg-white p-8 rounded-[32px] shadow-xl shadow-slate-200/40 border border-slate-50 flex items-center justify-between group hover:scale-[1.02] transition-all">
+      <div>
+        <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">{label}</p>
+        <p className="text-4xl font-black text-slate-900 tracking-tighter">{count}</p>
+      </div>
+      <div className={`w-16 h-16 rounded-3xl ${color} flex items-center justify-center text-white text-2xl shadow-lg transition-transform group-hover:rotate-6`}>
         {icon}
       </div>
-      <p className="text-[11px] font-black text-slate-300 uppercase tracking-[0.2em] mb-2">{label}</p>
-      <p className="text-5xl font-black text-slate-900 tracking-tighter">{count}</p>
     </div>
   );
 }
