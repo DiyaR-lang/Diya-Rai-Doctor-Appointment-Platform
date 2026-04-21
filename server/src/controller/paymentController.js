@@ -40,7 +40,7 @@ export const initiateKhaltiPayment = async (req, res) => {
 };
 
 // --- 2. VERIFY PAYMENT (Updated for Sandbox URLs) ---
-// --- VERIFY PAYMENT (Corrected for Approval Flow) ---
+/// --- VERIFY PAYMENT (Updated to prevent duplicate notifications) ---
 export const verifyKhaltiPayment = async (req, res) => {
   const { pidx, appointmentId } = req.body;
   const io = req.app.get("socketio");
@@ -53,14 +53,24 @@ export const verifyKhaltiPayment = async (req, res) => {
     );
 
     if (khaltiResponse.data.status === "Completed") {
-      // BRIDGE: Populate doctorId.userId to reach the Account ID
+      // 1. Fetch the appointment first to check current status
+      const existingAppointment = await Appointment.findById(appointmentId);
+      
+      if (!existingAppointment) {
+        return res.status(404).json({ message: "Appointment not found" });
+      }
+
+      // 2. DUPLICATE PREVENTION: If already paid, do not trigger notification logic again
+      if (existingAppointment.paymentStatus === "paid") {
+        return res.status(200).json({ success: true, message: "Payment already verified" });
+      }
+
+      // 3. Proceed with update since it's the first time
       const appointment = await Appointment.findByIdAndUpdate(
         appointmentId,
         { paymentStatus: "paid", status: "pending" },
         { new: true }
       ).populate({ path: "doctorId", select: "userId" }).populate("patientId");
-
-      if (!appointment) return res.status(404).json({ message: "Appointment not found" });
 
       // Update Doctor Availability Slot
       const doctor = await Doctor.findById(appointment.doctorId._id);
@@ -74,11 +84,11 @@ export const verifyKhaltiPayment = async (req, res) => {
         }
       }
 
-      // NOTIFICATION LOGIC: Targeting the 6982... ID
+      // NOTIFICATION LOGIC: Targeting the Doctor's Account ID
       const doctorAccountID = appointment.doctorId.userId._id || appointment.doctorId.userId;
       const doctorAccountStr = doctorAccountID.toString();
 
-      // Send Real-time Notification to Doctor's Account Room
+      // Send Real-time Notification
       await sendNotification(io, {
         userId: doctorAccountStr,
         title: "Payment Confirmed",
@@ -96,7 +106,6 @@ export const verifyKhaltiPayment = async (req, res) => {
     res.status(500).json({ message: "Verification failed", error: error.message });
   }
 };
-
 
 
 

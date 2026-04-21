@@ -169,4 +169,6 @@ router.put("/:id/cancel", protect, authorizeRoles("doctor"), async (req, res) =>
     res.status(500).json({ message: "Server error" });
   }
 });
+
+
 export default router;

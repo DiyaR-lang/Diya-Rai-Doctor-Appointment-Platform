@@ -6,16 +6,40 @@ import {
 import { Link } from 'react-router-dom';
 
 const Home = () => {
-  // Plug in your backend data here
+  // --- UPDATED BACKEND DATA WITH REAL IMAGE URLS ---
+  // These are placeholders from Unsplash/Pexels featuring doctors in white coats.
   const doctorsFromBackend = [
-    { id: 1, name: "Dr. Michael Chen", type: "Cardiologist", rating: "4.9" },
-    { id: 2, name: "Dr. Sarah Williams", type: "Dermatologist", rating: "5.0" },
-    { id: 3, name: "Dr. James Wilson", type: "Neurologist", rating: "4.8" },
-    { id: 4, name: "Dr. Emily Rodriguez", type: "Pediatrician", rating: "4.9" },
+    { 
+      id: 1, 
+      name: "Dr. Raju Shah", 
+      type: "Cardiologist", 
+      rating: "4.9",
+      image: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?q=80&w=400&auto=format&fit=crop" // Male doctor, white coat
+    },
+    { 
+      id: 2, 
+      name: "Dr. Sarah Williams", 
+      type: "Dermatologist", 
+      rating: "5.0",
+      image: "https://images.unsplash.com/photo-1594824476967-48c873f18d9f?q=80&w=400&auto=format&fit=crop" // Female doctor, white coat
+    },
+    { 
+      id: 3, 
+      name: "Dr. James Wilson", 
+      type: "Neurologist", 
+      rating: "4.8",
+      image: "https://images.pexels.com/photos/4173251/pexels-photo-4173251.jpeg?auto=compress&cs=tinysrgb&w=400" // Male doctor, white coat
+    },
+    { 
+      id: 4, 
+      name: "Dr. Emily Rodriguez", 
+      type: "Pediatrician", 
+      rating: "4.9",
+      image: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?q=80&w=400&auto=format&fit=crop" // Female doctor, white coat
+    },
   ];
 
   return (
-    /* Changed bg-slate-100 for a slightly darker, more professional base */
     <div className="bg-[#edf2f7] font-sans text-slate-900 min-h-screen">
       
       {/* --- HERO SECTION --- */}
@@ -94,6 +118,7 @@ const Home = () => {
                 name={doc.name} 
                 type={doc.type} 
                 rating={doc.rating} 
+                image={doc.image} // --- PASSING THE IMAGE PROP ---
               />
             ))}
           </div>
@@ -116,14 +141,20 @@ const FeatureCard = ({ icon, title, desc, color }) => (
   </div>
 );
 
-const DoctorCard = ({ name, type, rating }) => (
+// --- UPDATED DOCTORCARD TO ACCEPT IMAGE PROP ---
+const DoctorCard = ({ name, type, rating, image }) => (
   <div className="group bg-white rounded-[2.5rem] border border-slate-200/60 overflow-hidden hover:shadow-2xl transition-all duration-500">
-    <div className="h-64 bg-slate-100 relative">
+    <div className="h-64 bg-slate-100 relative overflow-hidden">
         <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full flex items-center gap-1 z-10 shadow-sm border border-slate-100">
            <Star size={14} className="text-amber-400 fill-amber-400" />
            <span className="text-xs font-black text-slate-900">{rating}</span>
         </div>
-        <img src={`https://i.pravatar.cc/300?u=${name}`} alt={name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+        {/* --- NOW USING THE IMAGE PROP --- */}
+        <img 
+          src={image} 
+          alt={name} 
+          className="w-full h-full object-cover object-top group-hover:scale-110 transition-transform duration-700" 
+        />
     </div>
     <div className="p-8">
       <p className="text-[#38b2ac] text-[10px] font-black uppercase tracking-widest mb-1">{type}</p>

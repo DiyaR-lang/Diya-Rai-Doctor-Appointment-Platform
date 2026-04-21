@@ -22,8 +22,8 @@ export default function Login() {
       try {
         const user = JSON.parse(userStr);
         const role = user.role;
-        if (role === "admin") navigate("/admin/dashboard");
-        else if (role === "doctor") navigate("/doctor/dashboard");
+        // Admin redirection removed
+        if (role === "doctor") navigate("/doctor/dashboard");
         else if (role === "patient") navigate("/patient/dashboard");
       } catch (error) {
         localStorage.removeItem("user");
@@ -45,10 +45,14 @@ export default function Login() {
       localStorage.setItem("user", JSON.stringify(res.data.user));
       localStorage.setItem("email", res.data.user.email);
       localStorage.setItem("role", res.data.user.role);
+      
       const role = res.data.user.role;
-      if (role === "admin") navigate("/admin/dashboard");
-      else if (role === "doctor") navigate("/doctor/dashboard");
-      else navigate("/patient/dashboard");
+      // Redirection logic updated to exclude admin
+      if (role === "doctor") {
+        navigate("/doctor/dashboard");
+      } else {
+        navigate("/patient/dashboard");
+      }
     } catch (err) {
       setMessage(err.response?.data?.message || "❌ Login failed");
     } finally {
@@ -93,7 +97,7 @@ export default function Login() {
               <label className="text-xs font-bold uppercase text-gray-400">Role</label>
               <select name="role" className="w-full border-b-2 border-gray-100 focus:border-blue-500 outline-none py-2 bg-transparent transition-colors" value={form.role} onChange={handleChange} required>
                 <option value="">Select Role</option>
-                <option value="admin">Admin</option>
+                {/* Admin option removed */}
                 <option value="doctor">Doctor</option>
                 <option value="patient">Patient</option>
               </select>

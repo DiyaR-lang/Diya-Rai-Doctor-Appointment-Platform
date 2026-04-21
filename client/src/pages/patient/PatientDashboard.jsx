@@ -181,7 +181,7 @@ export default function PatientDashboard() {
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  // ── PAYMENT ───────────────────────────────────────────────────────────────
+
   const handleFinalizePayment = async (appt) => {
     setPayLoading(true);
     try {
@@ -203,7 +203,6 @@ export default function PatientDashboard() {
     }
   };
 
-  // ── PROFILE UPDATE ────────────────────────────────────────────────────────
   const handleUpdateProfile = async () => {
     const data = new FormData();
     data.append("name", formData.name);
@@ -232,7 +231,7 @@ export default function PatientDashboard() {
     }
   };
 
-  // ── DELETE APPOINTMENT ────────────────────────────────────────────────────
+
   const deleteAppointment = async (id) => {
     if (!window.confirm("Cancel this appointment?")) return;
     try {

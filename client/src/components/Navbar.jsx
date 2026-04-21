@@ -6,7 +6,7 @@ export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // ✅ ORIGINAL LOGIC WITH SAFETY FIX: Check for "undefined" string before parsing
+  
   const rawUser = localStorage.getItem("user");
   const user = (rawUser && rawUser !== "undefined") ? JSON.parse(rawUser) : null;
   const token = localStorage.getItem("token");
@@ -39,13 +39,13 @@ export default function Navbar() {
       <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/")}>
         <div className="w-12 h-12 md:w-14 md:h-14">
           <img
-            src="https://img.favpng.com/11/11/11/staff-of-hermes-caduseus-as-a-symbol-of-medicine-caduceus-as-a-symbol-of-medicine-clip-art-png-favpng-tjtjy62QwG0ipBZgKUrZfNTFi.jpg"
+            src="https://en.pimg.jp/067/720/358/1/67720358.jpg"
             alt="Doctor Logo"
             className="w-full h-full object-contain"
           />
         </div>
         <span className="text-xl md:text-2xl font-bold text-blue-900 tracking-tight">
-          HEALTHCARE
+          MediHub Nepal
         </span>
       </div>
 
@@ -63,7 +63,7 @@ export default function Navbar() {
           </li>
         ))}
 
-        {user?.role === "admin" && (
+        {/* {user?.role === "admin" && (
           <li
             className={`border border-gray-300 rounded-full px-4 py-1 text-[10px] cursor-pointer hover:bg-gray-50 transition-all ${
               location.pathname.includes("/admin") ? "bg-blue-100 border-blue-500 text-blue-700" : ""
@@ -72,7 +72,7 @@ export default function Navbar() {
           >
             Admin Panel
           </li>
-        )}
+        )} */}
       </ul>
 
       {/* Right Dropdown */}

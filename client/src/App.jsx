@@ -10,7 +10,8 @@ import Home from "./pages/Home";
 import Login from "./components/Login";
 import Register from "./components/Register";
 import AllDoctors from "./pages/AllDoctors";
-
+import About from "./pages/About";
+import Contact from "./pages/Contact";
 // Dashboards
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import DoctorDashboard from "./pages/doctor/DoctorDashboard";
@@ -32,6 +33,8 @@ export default function App() {
         <Route path="register" element={<Register />} />
         
         <Route path="all-doctors" element={<AllDoctors />} />
+        <Route path="about" element={<About />} />
+        <Route path="contact" element={<Contact />} />
         
         {/* --- ADD THIS ROUTE TO FIX THE 404 --- */}
         <Route path="payment-success" element={<AllDoctors />} />

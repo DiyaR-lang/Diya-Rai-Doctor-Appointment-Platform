@@ -53,21 +53,27 @@ export default function DoctorDashboard() {
     setSocket(newSocket);
 
     newSocket.on("connect", () => {
-      // SUCCESS: Joins room using the Account ID (6982...)
+      // Joins room using the Account ID
       newSocket.emit("join_user", user._id || user.id);
       console.log("Joined Notification Room:", user._id);
     });
 
-    // Real-time Notification Listener
+    // Real-time Notification Listener - Added duplicate check
     newSocket.on("new_notification", (notif) => {
-      setNotifications((prev) => [notif, ...prev]);
+      setNotifications((prev) => {
+        const exists = prev.find(n => n._id === notif._id);
+        if (exists) return prev; // If ID exists, don't add again
+        return [notif, ...prev];
+      });
     });
 
-    // Real-time Appointment Refresh (e.g., when payment is verified)
+    // Real-time Appointment Refresh (Fixes the duplication of rows)
     newSocket.on("new_appointment", (appt) => {
       setAppointments((prev) => {
         const exists = prev.find(a => a._id === appt._id);
+        // If it exists, update the existing one (prevents duplicate rows)
         if (exists) return prev.map(a => a._id === appt._id ? appt : a);
+        // If it doesn't exist, add it to the top
         return [appt, ...prev];
       });
     });
@@ -79,19 +85,16 @@ export default function DoctorDashboard() {
 
   const fetchInitialData = async () => {
     try {
-      // 1. Fetch Appointments (Backend queries by Profile ID internally)
       const apptRes = await axios.get("http://localhost:5000/api/appointments/doctor/my", {
         headers: { Authorization: `Bearer ${token}` }
       });
       setAppointments(apptRes.data);
 
-      // 2. Fetch Notifications (Backend queries by User Account ID)
       const notifRes = await axios.get("http://localhost:5000/api/notifications/my", {
         headers: { Authorization: `Bearer ${token}` }
       });
       setNotifications(notifRes.data);
 
-      // 3. Fetch Profile
       const profileRes = await axios.get("http://localhost:5000/api/doctors/profile/me", {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -284,7 +287,6 @@ export default function DoctorDashboard() {
       <div className="max-w-[1400px] mx-auto p-4 md:p-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           
-          {/* SIDEBAR */}
           <aside className="lg:col-span-3 space-y-4">
             <div className="bg-white border border-sky-100 rounded-[2rem] p-6 text-center shadow-lg shadow-sky-900/5 relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-20 bg-gradient-to-br from-sky-400 to-sky-100 opacity-20"></div>
@@ -315,7 +317,6 @@ export default function DoctorDashboard() {
             </nav>
           </aside>
 
-          {/* MAIN CONTENT */}
           <main className="lg:col-span-9 bg-white border border-sky-100 rounded-[2.5rem] p-6 md:p-10 shadow-xl shadow-sky-900/5 min-h-[750px]">
             
             {activeTab === "profile" && (
@@ -350,33 +351,51 @@ export default function DoctorDashboard() {
             )}
 
             {activeTab === "appointments" && (
-              <div className="animate-in slide-in-from-right-5">
-                <h2 className="text-2xl font-bold mb-6 text-slate-900">Patient Queue</h2>
-                <div className="space-y-3">
-                  {appointments.map((a) => (
-                    <div key={a._id} className="p-5 bg-sky-50/30 border border-sky-100 rounded-2xl flex items-center justify-between hover:bg-sky-50 transition-all">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center font-bold text-sky-600">{a.patientId?.name?.charAt(0)}</div>
-                        <div>
-                          <p className="font-bold text-slate-800">{a.patientId?.name}</p>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase">{new Date(a.date).toLocaleDateString()} • {a.time}</p>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        {a.status === "pending" ? (
-                          <>
-                            <button onClick={() => updateStatus(a._id, "cancel")} className="bg-rose-50 text-rose-500 px-4 py-2 rounded-xl text-[10px] font-bold uppercase">Decline</button>
-                            <button onClick={() => updateStatus(a._id, "confirm")} className="bg-sky-600 text-white px-4 py-2 rounded-xl text-[10px] font-bold uppercase shadow-lg shadow-sky-200">Accept</button>
-                          </>
-                        ) : (
-                          <span className={`text-[9px] font-bold uppercase px-4 py-2 rounded-lg ${a.status === 'confirmed' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>{a.status}</span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+  <div className="animate-in slide-in-from-right-5">
+    <div className="flex justify-between items-center mb-6">
+      <h2 className="text-2xl font-bold text-slate-900">Active Patient Queue</h2>
+    </div>
+    
+    <div className="space-y-3">
+      {appointments
+        .filter((a) => {
+          
+          if (a.status !== "cancelled") return true;
+
+          // 2. For cancelled appointments, check the time
+          const cancelTime = new Date(a.updatedAt).getTime(); // Ensure your backend sends updatedAt
+          const currentTime = new Date().getTime();
+          const twentyMinutesInMs = 20 * 60 * 1000;
+
+          // 3. Only show if it was cancelled less than 20 minutes ago
+          return currentTime - cancelTime < twentyMinutesInMs;
+        })
+        .map((a) => (
+          <div key={a._id} className="p-5 bg-white border border-sky-100 rounded-2xl flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-sky-50 rounded-xl flex items-center justify-center font-bold text-sky-600">
+                {a.patientId?.name?.charAt(0)}
+              </div>
+              <div>
+                <p className="font-bold text-slate-800">{a.patientId?.name}</p>
+                <p className="text-[10px] text-slate-400 font-bold uppercase">
+                  Status: <span className={a.status === 'cancelled' ? 'text-rose-500' : 'text-emerald-500'}>{a.status}</span>
+                </p>
+              </div>
+            </div>
+            
+            {/* Show Action buttons only if still pending */}
+            {a.status === "pending" && (
+              <div className="flex gap-2">
+                <button onClick={() => updateStatus(a._id, "cancel")} className="p-2 bg-rose-50 text-rose-500 rounded-lg">✕</button>
+                <button onClick={() => updateStatus(a._id, "confirm")} className="bg-sky-600 text-white px-4 py-2 rounded-lg text-xs">Accept</button>
               </div>
             )}
+          </div>
+        ))}
+    </div>
+  </div>
+)}
 
             {activeTab === "availability" && (
                 <div className="animate-in fade-in">
@@ -468,9 +487,6 @@ export default function DoctorDashboard() {
   );
 }
 
-// ============================
-// HELPER COMPONENTS
-// ============================
 function StatCard({ label, count, icon, color }) {
   return (
     <div className="p-6 bg-white rounded-3xl border border-sky-50 shadow-sm flex items-center gap-4 group hover:scale-[1.02] transition-all">
